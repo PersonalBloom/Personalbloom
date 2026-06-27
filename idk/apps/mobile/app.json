@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "PersonalBloom",
+    "slug": "personalbloom",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "personalbloom",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0d0d18"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.personalbloom"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0d0d18"
+      },
+      "package": "app.personalbloom"
+    },
+    "web": { "bundler": "metro" },
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": true }
+  }
+}

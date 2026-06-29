@@ -59,15 +59,22 @@ const TOPIC_JUNK = new Set([
 ])
 
 function isUsefulTopic(term: string): boolean {
-  const lower = term.toLowerCase().replace(/[^a-z]/g, '')
-  if (TOPIC_JUNK.has(lower)) return false
   if (term.length < 4 || term.length > 60) return false
+  // Skip URLs or credential-looking things
+  if (term.includes('http') || term.includes('www') || term.includes('@') || /password|user.?id/i.test(term)) return false
   // Skip if it's mostly numbers or symbols
   if (/^[\d\s\W]+$/.test(term)) return false
-  // Skip URLs
-  if (term.includes('http') || term.includes('www')) return false
   // Skip if it starts with common instruction words
-  if (/^(visit|listen|read|write|review|practice|study|draw|make|create|use|check|ensure|complete|learn|understand)/i.test(term)) return false
+  if (/^(visit|listen|read|write|review|practice|study|draw|make|create|use|check|ensure|complete|learn|understand|watch|download|access)/i.test(term)) return false
+  // Check the full lowercased+stripped version
+  const stripped = term.toLowerCase().replace(/[^a-z]/g, '')
+  if (TOPIC_JUNK.has(stripped)) return false
+  // Also check each word individually — "Art Mandatory", "Holiday Homework" etc.
+  const words = term.toLowerCase().split(/\s+/)
+  if (words.every(w => TOPIC_JUNK.has(w.replace(/[^a-z]/g, '')))) return false
+  // If more than half the words are junk, skip
+  const junkCount = words.filter(w => TOPIC_JUNK.has(w.replace(/[^a-z]/g, ''))).length
+  if (junkCount > 0 && junkCount >= Math.ceil(words.length / 2)) return false
   return true
 }
 

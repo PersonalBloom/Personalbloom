@@ -95,6 +95,30 @@ function getBloomieResponse(userText: string, history: Message[]): string {
     ])
   }
 
+  // ── Practical advice requests ──
+  if (/(top \d+|give me|what (should|can) i do|how (do|can) i|advice|tips for|help (me|with)|what helps)/i.test(lower)) {
+    if (/headache/.test(lower)) {
+      return "Headache survival kit: drink a big glass of water right now (dehydration is #1 cause), take paracetamol or ibuprofen if you have it, dim your screen brightness, close your eyes for 5-10 min in a dark room, put something cold on your forehead, avoid loud music. If it's been hours, stop studying — your brain can't absorb anything through pain anyway."
+    }
+    if (/stress|overwhelm/.test(lower)) {
+      return "When stress hits hard: 1) Write down everything in your head (gets it out of your brain). 2) Pick ONE thing to do next — not the whole list. 3) Box breathing: 4 sec in, 4 hold, 4 out. 4) Move for 5 min — literally just walk around. 5) Put your phone face-down. Your brain can only actually focus on one thing at a time anyway."
+    }
+    if (/sleep|tired/.test(lower)) {
+      return "Sleep hacks that actually work: no screens 30 min before bed, keep your room cold (18°C is optimal), same sleep/wake time every day even weekends, if you can't sleep stop trying — get up and do something boring. For studying while tired: 25 min on / 5 min off, cold water on your face, stand up while reading."
+    }
+    if (/focus|concentrate|distract/.test(lower)) {
+      return "To actually focus: put your phone in another room (not just face down), use one tab only, tell yourself you're doing 25 min then a break, put on brown noise or lo-fi (no lyrics), start with the easiest task to build momentum. The first 5 min are always the hardest — just start."
+    }
+    if (/motivat/.test(lower)) {
+      return "Motivation doesn't come first — action does. Don't wait to feel like it. Open the book, set a 10 min timer, start. Once you start the motivation usually follows. Also: make it concrete ('I'll do 2 Biology questions') not vague ('I'll study'). Small wins build momentum."
+    }
+    // Generic practical question
+    return pick([
+      "That's a good question. What specifically are you dealing with? The more detail you give me, the better I can actually help.",
+      "Tell me more about what's going on and I'll try to give you something actually useful, not just vibes.",
+    ])
+  }
+
   // ── Sick / physical health ──
   if (/\b(sick|ill|headache|pain|nausea|nauseous|fever|cold|flu|throwing up|vomit|hurt|hurting|unwell)\b/.test(lower)) {
     return pick([

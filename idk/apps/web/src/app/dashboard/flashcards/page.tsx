@@ -36,7 +36,9 @@ function parseCards(note: Note): Card[] {
     if (colonMatch) {
       const front = colonMatch[1].replace(/^[-•*#\d.]+\s*/,'').trim()
       const back = colonMatch[2].trim()
-      if (!isJunkTerm(front) && back.length > 4) {
+      const isJunkBack = (b: string) =>
+        /https?:|www\.|password|user.?id|@.*\.com|DT\d|login/i.test(b)
+      if (!isJunkTerm(front) && back.length > 4 && !isJunkBack(back)) {
         cards.push({ front, back: truncateBack(back), subject: note.subject, noteTitle: note.title })
         continue
       }

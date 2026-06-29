@@ -61,7 +61,7 @@ async function extractPdfText(file: File): Promise<string> {
 
 export default function NotesPage() {
   const [notes, setNotes] = useState<Note[]>([])
-  const [showForm, setShowForm] = useState(false)
+  const [showForm, setShowForm] = useState(true)
   const [subject, setSubject] = useState('')
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -154,7 +154,7 @@ export default function NotesPage() {
           onClick={() => setShowForm(s => !s)}
           className="px-4 py-2.5 bg-gradient-to-r from-violet-500 to-pink-500 rounded-xl font-semibold text-white hover:opacity-90 transition-all text-sm"
         >
-          + Add Notes
+          {showForm ? '✕ Close' : '+ Add Notes'}
         </button>
       </div>
 

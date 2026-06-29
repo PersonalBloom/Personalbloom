@@ -48,6 +48,7 @@ export default function DashboardHome() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [hour] = useState(new Date().getHours())
   const [rescueMode, setRescueMode] = useState(false)
+  const [isSoulPlusLocal, setIsSoulPlusLocal] = useState(false)
 
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
@@ -70,6 +71,19 @@ export default function DashboardHome() {
   }, [supabase])
 
   useEffect(() => { loadProfile() }, [loadProfile])
+
+  useEffect(() => {
+    // Check localStorage for Soul+ status
+    const soulPlus = localStorage.getItem('bloomSoulPlus') === 'true'
+    setIsSoulPlusLocal(soulPlus)
+    // Handle redirect from Stripe checkout
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('upgraded') === 'true') {
+      localStorage.setItem('bloomSoulPlus', 'true')
+      setIsSoulPlusLocal(true)
+      window.history.replaceState({}, '', '/dashboard')
+    }
+  }, [])
 
   const msg = bloomieMsgs[Math.floor(Math.random() * bloomieMsgs.length)]
 
@@ -200,7 +214,27 @@ export default function DashboardHome() {
       </a>
 
       {/* Study Wrapped */}
-      <StudyWrapped isSoulPlus={profile?.plan === 'soul_plus' || profile?.plan === 'trial'} />
+      {/* Soul+ upgrade banner for free users */}
+      {!isSoulPlusLocal && (
+        <a href="/pricing" className="block p-5 bg-gradient-to-r from-amber-950/50 to-violet-950/50 border border-amber-400/30 rounded-2xl hover:border-amber-400/50 transition-all group">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">✨</span>
+                <span className="font-bold">Upgrade to Soul+</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-300 font-semibold">€9.99/mo</span>
+              </div>
+              <p className="text-sm text-white/50">Unlock Study Wrapped, Grade Predictor, Weakness Analytics, Focus Rooms & more</p>
+            </div>
+            <div className="shrink-0 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-bold group-hover:opacity-90 transition-all">
+              See plans →
+            </div>
+          </div>
+        </a>
+      )}
+
+      {/* Study Wrapped */}
+      <StudyWrapped isSoulPlus={isSoulPlusLocal} />
 
       {/* Rescue banner */}
       <div className="card border-red-500/30 bg-red-500/5 flex items-center justify-between gap-4">

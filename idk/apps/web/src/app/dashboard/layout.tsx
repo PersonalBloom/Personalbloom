@@ -31,8 +31,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/auth/login'); return }
     setUser(user)
-    // Always active during early access
-    localStorage.setItem('bloomSoulPlus', 'true')
+    // Creator account always gets Soul+ free
+    if (user.email === 'augustinduha67@gmail.com') {
+      localStorage.setItem('bloomSoulPlus', 'true')
+    }
   }, [supabase, router])
 
   useEffect(() => { checkUser() }, [checkUser])

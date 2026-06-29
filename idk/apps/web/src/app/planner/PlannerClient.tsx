@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
-import { generateStudyPlan, getTasksForDate, getTodayStr, StudyTask, PlanSubject, extractTopicsFromNotes } from '@/lib/planner'
+import { generateStudyPlan, getTasksForDate, getTodayStr, StudyTask, PlanSubject, extractTopicsFromNotes, loadTextbookForSubject, findTextbookExcerpt } from '@/lib/planner'
 import { awardXP } from '@/lib/gamification'
 
 type SavedPlan = {
@@ -65,19 +65,32 @@ export default function PlannerClient() {
       : `exam in ${days} days — build deep understanding`
     const numSessions = Math.max(1, Math.round(task.durationMinutes / 20))
 
-    // Pull all notes that mention this subject
-    const relevantNotes = (() => {
+    // Pull class notes for this subject
+    const classNotes = (() => {
       try {
         const ns = JSON.parse(localStorage.getItem('bloomNotes') || '[]') as Array<{content:string}>
         const subjectLower = task.subjectName.toLowerCase().split(' ')[0]
         const matches = ns.filter(n => n.content.toLowerCase().includes(subjectLower))
         if (matches.length === 0) return ''
-        const combined = matches.map(n => n.content).join('\n\n').slice(0, 1200)
-        return `\n\nMy notes:\n${combined}`
+        return '\n\nMy class notes:\n' + matches.map(n => n.content).join('\n\n').slice(0, 800)
       } catch { return '' }
     })()
 
-    return `${task.subjectName} — ${numSessions}×20 min — ${task.sessionLabel}\n\n${urgency}${relevantNotes}\n\nBased on my notes above, give me a precise structured revision session covering exactly what's in my notes. Include: key definitions to memorise, 3–5 practice questions at exam difficulty, and a 5-question self-test at the end. Be specific — use the exact topics and terminology from my notes.`
+    // Pull relevant textbook excerpt for this specific topic
+    const textbookExcerpt = (() => {
+      try {
+        const tbContent = loadTextbookForSubject(task.subjectName)
+        if (!tbContent || !task.topic) return ''
+        const excerpt = findTextbookExcerpt(tbContent, task.topic)
+        return excerpt ? `\n\nFrom my textbook:\n${excerpt}` : ''
+      } catch { return '' }
+    })()
+
+    const hasContext = classNotes || textbookExcerpt
+    return `${task.subjectName} — ${numSessions}×20 min — ${task.sessionLabel}\n\n${urgency}${classNotes}${textbookExcerpt}\n\n${hasContext
+      ? 'Based on my notes and textbook above, give me a precise structured revision session covering exactly this topic. Include: key definitions to memorise, 3–5 practice questions at exam difficulty, and a 5-question self-test at the end. Be specific — use the exact terms and concepts from my material.'
+      : 'Give me a structured revision session for this topic. Include: key definitions, worked examples, 3–5 practice questions at exam difficulty, and a 5-question self-test at the end.'
+    }`
   }
 
   function copyPrompt(task: StudyTask) {

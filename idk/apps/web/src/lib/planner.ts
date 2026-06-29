@@ -237,6 +237,37 @@ function isUsefulTopic(term: string, subjectName?: string): boolean {
   return true
 }
 
+// ─── Textbook helpers (used by planner + revision prompts) ────────────────
+export function loadTextbookForSubject(subjectName: string): string {
+  if (typeof window === 'undefined') return ''
+  try {
+    const saved = localStorage.getItem('bloomTextbooks')
+    if (!saved) return ''
+    const books: Array<{ subject: string; content: string }> = JSON.parse(saved)
+    const lower = subjectName.toLowerCase()
+    const match = books.find(b =>
+      b.subject.toLowerCase() === lower ||
+      b.subject.toLowerCase().includes(lower.split(' ')[0]) ||
+      lower.includes(b.subject.toLowerCase().split(' ')[0])
+    )
+    return match?.content || ''
+  } catch { return '' }
+}
+
+// Find the most relevant ~800-char excerpt from a textbook for a given topic
+export function findTextbookExcerpt(textbookContent: string, topic: string): string {
+  if (!textbookContent || !topic) return ''
+  // Get the first keyword from the topic (e.g. "algebra" from "algebra: solving equations")
+  const keyword = topic.split(/[:\-–]/)[0].trim().split(/\s+/)[0].toLowerCase()
+  const lowerContent = textbookContent.toLowerCase()
+  const idx = lowerContent.indexOf(keyword)
+  if (idx === -1) return ''
+  // Take 800 chars around the first occurrence
+  const start = Math.max(0, idx - 100)
+  const end = Math.min(textbookContent.length, idx + 700)
+  return textbookContent.slice(start, end).trim()
+}
+
 // Extract the key noun phrase from a longer sentence
 function extractKeyPhrase(text: string): string {
   const clean = text.replace(/^[-•*#\d.)]+\s*/, '').trim()
@@ -338,7 +369,19 @@ export function extractTopicsFromNotes(notes: string, subjectName: string): stri
     if (result.length >= 15) break
   }
 
-  // If we found fewer than 2 real topics, fall back to curriculum library
+  // If notes were thin, also try extracting chapter headings from the textbook
+  if (result.length < 4) {
+    const textbook = loadTextbookForSubject(subjectName)
+    if (textbook) {
+      const tbTopics = extractTopicsFromNotes(textbook, subjectName)
+      for (const t of tbTopics) {
+        if (!result.includes(t)) result.push(t)
+        if (result.length >= 15) break
+      }
+    }
+  }
+
+  // If we still found fewer than 2 topics, fall back to curriculum library
   if (result.length < 2) {
     const fallback = getFallbackTopics(subjectName)
     if (fallback.length > 0) return fallback

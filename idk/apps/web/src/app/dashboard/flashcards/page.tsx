@@ -18,9 +18,12 @@ function isJunkTerm(term: string): boolean {
   return JUNK_TERMS.has(lower) || term.length < 3 || term.length > 70
 }
 
-function isJunkBack(back: string): boolean {
-  // Too long (it's a paragraph, not a definition)
-  return back.length > 200 || back.split(' ').length > 30
+function truncateBack(back: string): string {
+  // Truncate long backs to first sentence or 120 chars
+  const firstSentence = back.match(/^[^.!?]+[.!?]/)
+  if (firstSentence && firstSentence[0].length < 150) return firstSentence[0].trim()
+  if (back.length > 120) return back.slice(0, 120).trim() + '…'
+  return back
 }
 
 function parseCards(note: Note): Card[] {
@@ -33,8 +36,8 @@ function parseCards(note: Note): Card[] {
     if (colonMatch) {
       const front = colonMatch[1].replace(/^[-•*#\d.]+\s*/,'').trim()
       const back = colonMatch[2].trim()
-      if (!isJunkTerm(front) && !isJunkBack(back) && back.length > 4) {
-        cards.push({ front, back, subject: note.subject, noteTitle: note.title })
+      if (!isJunkTerm(front) && back.length > 4) {
+        cards.push({ front, back: truncateBack(back), subject: note.subject, noteTitle: note.title })
         continue
       }
     }

@@ -95,6 +95,15 @@ function getBloomieResponse(userText: string, history: Message[]): string {
     ])
   }
 
+  // ── Sick / physical health ──
+  if (/\b(sick|ill|headache|pain|nausea|nauseous|fever|cold|flu|throwing up|vomit|hurt|hurting|unwell)\b/.test(lower)) {
+    return pick([
+      "Ugh, feeling physically rough on top of everything else is the worst. Are you resting? Don't study if your body is telling you to stop.",
+      "Oh no, that sounds miserable. Have you had water and food today? Your body needs that before anything else.",
+      "Being sick and stressed at the same time is brutal. What do you need right now — rest advice, or just someone to talk to?",
+    ])
+  }
+
   // ── Tired / sleep ──
   if (/\b(tired|exhausted|no sleep|can't sleep|didn't sleep|sleep deprived|drained|burnt out|burnout)\b/.test(lower)) {
     return pick([
@@ -266,7 +275,7 @@ export default function BloomieChat() {
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
           placeholder="Talk to Bloomie..."
-          className="flex-1 bg-white/8 border border-white/15 rounded-2xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-violet-500 transition-all"
+          className="flex-1 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-violet-500 transition-all" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "white" }}
         />
         <button
           onClick={sendMessage}

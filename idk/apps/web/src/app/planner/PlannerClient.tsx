@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
-import { generateStudyPlan, getTasksForDate, getTodayStr, StudyTask, PlanSubject } from '@/lib/planner'
+import { generateStudyPlan, getTasksForDate, getTodayStr, StudyTask, PlanSubject, extractTopicsFromNotes } from '@/lib/planner'
 
 type SavedPlan = {
   programId: string
@@ -37,7 +37,18 @@ export default function PlannerClient() {
     if (saved) {
       const p: SavedPlan = JSON.parse(saved)
       setPlan(p)
-      const generated = generateStudyPlan(p.subjects, p.hoursPerDay)
+      // Re-extract topics from current notes (fixes stale topics from old plans)
+      const currentNotes = (() => {
+        try {
+          const ns = JSON.parse(localStorage.getItem('bloomNotes') || '[]') as Array<{content:string}>
+          return ns.map(n => n.content).join('\n\n')
+        } catch { return '' }
+      })()
+      const freshSubjects = p.subjects.map((s: PlanSubject) => ({
+        ...s,
+        topics: currentNotes ? extractTopicsFromNotes(currentNotes, s.name) : s.topics,
+      }))
+      const generated = generateStudyPlan(freshSubjects, p.hoursPerDay)
       setTasks(generated)
     }
     if (savedDone) {

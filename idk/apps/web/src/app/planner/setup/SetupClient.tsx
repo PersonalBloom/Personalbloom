@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { PROGRAMS, getProgramById } from '@/lib/subjects'
-import { PlanSubject, assignColors } from '@/lib/planner'
+import { PlanSubject, assignColors, extractTopicsFromNotes } from '@/lib/planner'
 
 const STEPS = ['Program', 'Subjects', 'Exam Dates', 'Schedule', 'Notes', 'Done']
 
@@ -95,11 +95,20 @@ export default function SetupClient() {
     setSaving(true)
     const ids = selectedSubjects.map(s => s.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''))
     const colorMap = assignColors(ids.map(id => ({ id })))
+    // Pull in any previously saved notes too
+    const allNotes = importedNotes + (() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem('bloomNotes') || '[]') as Array<{content: string}>
+        return saved.map(n => n.content).join('\n\n')
+      } catch { return '' }
+    })()
+
     const subjects: PlanSubject[] = selectedSubjects.map((name, i) => {
       const detail = subjectDetails[name]
       const examDate = detail?.isDaily
-        ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 1 year from now for daily
+        ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         : (detail?.examDate || '')
+      const topics = extractTopicsFromNotes(allNotes, name)
       return {
         id: ids[i],
         name,
@@ -107,6 +116,7 @@ export default function SetupClient() {
         color: colorMap[ids[i]],
         priority: detail?.priority || 'medium',
         isDaily: detail?.isDaily || false,
+        topics: topics.length > 0 ? topics : undefined,
       }
     })
     if (importedNotes.trim()) {
@@ -476,27 +486,51 @@ export default function SetupClient() {
 
         {/* STEP 5: Done */}
         {step === 5 && (
-          <div className="text-center py-10">
-            <div className="text-7xl mb-6">🌸</div>
-            <h2 className="text-2xl font-bold mb-3">Bloomie is on it!</h2>
-            <p className="text-white/50 mb-2">Your personalised study plan is ready.</p>
-            <p className="text-white/30 text-sm mb-8">
-              {selectedSubjects.length} subjects · {formatTime(minutesPerDay)}/day ·{' '}
-              {studyMode === 'pomodoro_25' ? 'Pomodoro 25/5' : studyMode === 'pomodoro_50' ? 'Pomodoro 50/10' : studyMode === 'custom' ? `${customWork}/${customBreak} min` : 'Standard'}
-            </p>
-            <div className="grid grid-cols-2 gap-3 max-w-xs mx-auto mb-8">
-              {selectedSubjects.slice(0, 4).map(s => (
-                <div key={s} className="p-3 bg-white/5 border border-white/10 rounded-xl text-sm text-center">{s}</div>
-              ))}
-              {selectedSubjects.length > 4 && (
-                <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-sm text-center text-white/40">+{selectedSubjects.length - 4} more</div>
-              )}
+          <div className="py-10">
+            <div className="text-center mb-8">
+              <div className="text-7xl mb-4">🌸</div>
+              <h2 className="text-2xl font-bold mb-2">Bloomie has your plan!</h2>
+              <p className="text-white/50 text-sm">
+                {selectedSubjects.length} subjects · {formatTime(minutesPerDay)}/day ·{' '}
+                {studyMode === 'pomodoro_25' ? 'Pomodoro 25/5' : studyMode === 'pomodoro_50' ? 'Pomodoro 50/10' : studyMode === 'custom' ? `${customWork}/${customBreak} min` : 'Standard'}
+              </p>
             </div>
-            <button onClick={savePlan} disabled={saving}
-              className="px-8 py-3 bg-gradient-to-r from-violet-500 to-pink-500 rounded-2xl font-semibold text-white hover:opacity-90 transition-all disabled:opacity-50"
-            >
-              {saving ? 'Generating...' : '🚀 Open My Plan'}
-            </button>
+
+            {/* Preview of what sessions will look like */}
+            <div className="mb-6">
+              <div className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-3">Your sessions will look like this</div>
+              <div className="space-y-2">
+                {selectedSubjects.slice(0, 3).map((subj, i) => {
+                  const topics = extractTopicsFromNotes(importedNotes, subj)
+                  const previews = topics.length > 0
+                    ? [`Review: ${topics[0]}`, topics[1] ? `Flashcards: ${topics[1]}` : `Practice problems — ${subj}`, topics[2] ? `Deep dive: ${topics[2]}` : `Active recall — ${subj}`]
+                    : [`Review ${subj} notes`, `Practice problems — ${subj}`, `Active recall — ${subj}`]
+                  return (
+                    <div key={subj} className="p-3 bg-white/5 border border-white/10 rounded-xl">
+                      <div className="text-xs text-white/40 mb-2">{subj}</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {previews.slice(0, 2).map((p, j) => (
+                          <span key={j} className="text-xs px-2.5 py-1 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/20">{p}</span>
+                        ))}
+                        {topics.length > 0 && <span className="text-xs px-2 py-1 text-white/30">+{Math.max(0, topics.length - 2)} more topics</span>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              {importedNotes.trim()
+                ? <p className="text-xs text-green-400/70 mt-3 text-center">✓ Bloomie read your notes and will build sessions around your topics</p>
+                : <p className="text-xs text-white/20 mt-3 text-center">No notes imported — sessions will use standard revision formats. You can add notes anytime.</p>
+              }
+            </div>
+
+            <div className="text-center">
+              <button onClick={savePlan} disabled={saving}
+                className="px-8 py-3 bg-gradient-to-r from-violet-500 to-pink-500 rounded-2xl font-semibold text-white hover:opacity-90 transition-all disabled:opacity-50"
+              >
+                {saving ? 'Building your plan...' : '🚀 Open My Plan'}
+              </button>
+            </div>
           </div>
         )}
 

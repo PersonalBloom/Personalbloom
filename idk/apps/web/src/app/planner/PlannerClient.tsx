@@ -218,7 +218,14 @@ export default function PlannerClient() {
                             </span>
                             <span className="text-xs text-white/40">{task.durationMinutes} min</span>
                           </div>
-                          <div className={`text-sm mt-1 font-medium ${isDone ? 'line-through text-white/40' : 'text-white/80'}`}>
+                          <div className={`text-sm mt-1 font-medium ${isDone ? 'line-through text-white/40' : 'text-white/90'}`}>
+                            {task.sessionType === 'flashcards'    ? '🃏 ' :
+                             task.sessionType === 'past_paper'    ? '📝 ' :
+                             task.sessionType === 'timed'         ? '⏱️ ' :
+                             task.sessionType === 'deep_dive'     ? '🔬 ' :
+                             task.sessionType === 'active_recall' ? '🧠 ' :
+                             task.sessionType === 'summary'       ? '✍️ ' :
+                             task.sessionType === 'practice'      ? '💪 ' : '📖 '}
                             {task.sessionLabel}
                           </div>
                         </div>

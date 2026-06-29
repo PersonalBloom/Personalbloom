@@ -18,6 +18,7 @@ const NAV = [
   { href: '/dashboard/pomodoro',     icon: '🎧', label: 'Focus' },
   { href: '/dashboard/progress',     icon: '📊', label: 'Progress' },
   { href: '/pricing',                icon: '✨', label: 'Soul+' },
+  { href: '/dashboard/settings',    icon: '⚙️', label: 'Settings' },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

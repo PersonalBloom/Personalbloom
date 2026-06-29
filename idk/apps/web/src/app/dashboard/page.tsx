@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase'
 import { BloomieChat } from '@/components/ui/Bloomie'
 import { Button } from '@/components/ui/Button'
+import ExamRescue from '@/components/ui/ExamRescue'
 import { cn, getStreakEmoji } from '@/lib/utils'
 
 interface Profile {
@@ -45,6 +46,7 @@ export default function DashboardHome() {
   const supabase = createClient()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [hour] = useState(new Date().getHours())
+  const [rescueMode, setRescueMode] = useState(false)
 
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
@@ -185,14 +187,32 @@ export default function DashboardHome() {
         </div>
       </div>
 
+      {/* Bloomie chat card */}
+      <a href="/dashboard/bloomie" className="block p-5 bg-gradient-to-r from-violet-500/10 to-pink-500/10 border border-violet-500/20 rounded-2xl hover:border-violet-400/40 transition-all group">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-bold text-lg mb-1">💜 Talk to Bloomie</div>
+            <p className="text-white/50 text-sm">Need to vent? Feeling stressed? Bloomie is here for you.</p>
+          </div>
+          <div className="text-3xl group-hover:scale-110 transition-transform">🌸</div>
+        </div>
+      </a>
+
       {/* Rescue banner */}
       <div className="card border-red-500/30 bg-red-500/5 flex items-center justify-between gap-4">
         <div>
           <h3 className="font-bold text-red-300">🚨 Exam coming up?</h3>
-          <p className="text-sm text-white/50 mt-1">Drop your date and Bloomie builds your rescue plan.</p>
+          <p className="text-sm text-white/50 mt-1">Lock in rescue mode — Bloomie tells you exactly what to revise.</p>
         </div>
-        <Button variant="danger" size="sm">Rescue me</Button>
+        <Button variant="danger" size="sm" onClick={() => setRescueMode(true)}>Rescue me</Button>
       </div>
+
+      {rescueMode && (
+        <ExamRescue
+          onClose={() => setRescueMode(false)}
+          subjects={profile?.subjects || []}
+        />
+      )}
     </div>
   )
 }

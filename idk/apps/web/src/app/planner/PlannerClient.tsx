@@ -59,17 +59,24 @@ export default function PlannerClient() {
 
   function generateRevisionPrompt(task: StudyTask): string {
     const days = Math.ceil((new Date(task.date).getTime() - new Date().setHours(0,0,0,0)) / 86400000)
-    const urgency = days <= 3 ? 'exam is in ' + days + ' day(s) — focus on high-yield content only'
-      : days <= 7 ? 'exam is in ' + days + ' days — consolidate and practise'
-      : 'exam is in ' + days + ' days — build deep understanding'
-    const notes = (() => {
+    const urgency = days <= 3 ? `exam in ${days} day(s) — high-yield only, no fluff`
+      : days <= 7 ? `exam in ${days} days — consolidate and practise past-paper style`
+      : `exam in ${days} days — build deep understanding`
+    const numSessions = Math.max(1, Math.round(task.durationMinutes / 20))
+
+    // Pull all notes that mention this subject
+    const relevantNotes = (() => {
       try {
         const ns = JSON.parse(localStorage.getItem('bloomNotes') || '[]') as Array<{content:string}>
-        const relevant = ns.find(n => n.content.toLowerCase().includes(task.subjectName.toLowerCase()))
-        return relevant ? '\n\nMy notes:\n' + relevant.content.slice(0, 800) : ''
+        const subjectLower = task.subjectName.toLowerCase().split(' ')[0]
+        const matches = ns.filter(n => n.content.toLowerCase().includes(subjectLower))
+        if (matches.length === 0) return ''
+        const combined = matches.map(n => n.content).join('\n\n').slice(0, 1200)
+        return `\n\nMy notes:\n${combined}`
       } catch { return '' }
     })()
-    return `${task.subjectName} — ${Math.round(task.durationMinutes / 20)}×20 min — ${task.sessionLabel}\n\n${urgency}${notes}\n\nGive me a structured active revision session with key points, practice questions, and a quick self-test at the end.`
+
+    return `${task.subjectName} — ${numSessions}×20 min — ${task.sessionLabel}\n\n${urgency}${relevantNotes}\n\nBased on my notes above, give me a precise structured revision session covering exactly what's in my notes. Include: key definitions to memorise, 3–5 practice questions at exam difficulty, and a 5-question self-test at the end. Be specific — use the exact topics and terminology from my notes.`
   }
 
   function copyPrompt(task: StudyTask) {

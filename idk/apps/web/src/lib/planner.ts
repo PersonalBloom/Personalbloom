@@ -85,78 +85,102 @@ function isUsefulTopic(term: string, subjectName?: string): boolean {
   return true
 }
 
+// Extract the key noun phrase from a longer sentence
+function extractKeyPhrase(text: string): string {
+  const clean = text.replace(/^[-•*#\d.)]+\s*/, '').trim()
+  // "X is/are/= Y" → take X
+  const isMatch = clean.match(/^(.+?)\s+(is|are|=|refers to|means|involves|defined as)\s+/i)
+  if (isMatch) return isMatch[1].trim()
+  // First 4 words
+  return clean.split(/\s+/).slice(0, 4).join(' ')
+}
+
 export function extractTopicsFromNotes(notes: string, subjectName: string): string[] {
   if (!notes || !notes.trim()) return []
-  const topics: string[] = []
   const lines = notes.split('\n').map(l => l.trim()).filter(Boolean)
 
-  // Find section relevant to this subject (look 10 lines after subject name mention)
+  // Narrow to lines relevant to this subject
   let relevantLines: string[] = []
   let inSubjectSection = false
   let linesAfter = 0
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    const subjectMatch = line.toLowerCase().includes(subjectName.toLowerCase())
-    if (subjectMatch) {
-      inSubjectSection = true
-      linesAfter = 0
-      continue
+  for (const line of lines) {
+    if (line.toLowerCase().includes(subjectName.toLowerCase().split(' ')[0])) {
+      inSubjectSection = true; linesAfter = 0; continue
     }
     if (inSubjectSection) {
       linesAfter++
-      // Stop if we hit another subject header or after 20 lines
-      if (linesAfter > 20) { inSubjectSection = false }
+      if (linesAfter > 60) inSubjectSection = false
       else relevantLines.push(line)
     }
   }
-
-  // If no subject section found, use all lines
   const sourceLines = relevantLines.length > 3 ? relevantLines : lines
 
+  // Build clusters: each heading + its subtopics from following bullets
+  type Cluster = { heading: string; subtopics: string[] }
+  const clusters: Cluster[] = []
+  let current: Cluster | null = null
+
   for (const line of sourceLines) {
-    // "Term: definition" → extract term only
-    const colonMatch = line.match(/^(.+?):\s*.{5,}/)
-    if (colonMatch) {
-      const term = colonMatch[1].replace(/^[-•*#\d.]+\s*/, '').trim()
-      if (isUsefulTopic(term, subjectName)) topics.push(term)
+    const isBullet   = /^[-•*]\s+/.test(line)
+    const isNumbered = /^\d+[.)]\s+/.test(line)
+
+    // "Term: long definition..." → heading cluster + first key phrase as subtopic
+    const colonDef = line.match(/^([^:\n]{3,45}):\s+(.{8,})$/)
+    if (colonDef && !isBullet && !isNumbered) {
+      const heading = colonDef[1].replace(/^[-•*#\d.]+\s*/, '').trim()
+      if (isUsefulTopic(heading, subjectName)) {
+        const phrase = extractKeyPhrase(colonDef[2])
+        current = { heading, subtopics: phrase.length > 3 && isUsefulTopic(phrase, subjectName) ? [phrase] : [] }
+        clusters.push(current)
+      }
       continue
     }
-    // Bullet items — only short ones that look like topics
-    const bulletMatch = line.match(/^[-•*]\s+(.+)/)
-    if (bulletMatch) {
-      const item = bulletMatch[1].trim()
-      // Only keep if it's a short phrase (likely a concept, not an instruction sentence)
-      const wordCount = item.split(' ').length
-      if (wordCount <= 5 && isUsefulTopic(item, subjectName)) topics.push(item)
+
+    // Short standalone line → new cluster heading
+    const cleanLine = line.replace(/^#+\s*/, '').trim()
+    const wordCount = cleanLine.split(/\s+/).length
+    if (!isBullet && !isNumbered && wordCount <= 6 && cleanLine.length >= 4 && cleanLine.length <= 55) {
+      if (isUsefulTopic(cleanLine, subjectName)) {
+        current = { heading: cleanLine, subtopics: [] }
+        clusters.push(current)
+      }
       continue
     }
-    // Numbered list items
-    const numberedMatch = line.match(/^\d+\.\s+(.+)/)
-    if (numberedMatch) {
-      const item = numberedMatch[1].trim()
-      const wordCount = item.split(' ').length
-      if (wordCount <= 5 && isUsefulTopic(item, subjectName)) topics.push(item)
-      continue
-    }
-    // Short standalone lines = likely headings/topics
-    if (line.length < 45 && line.length > 4 && !line.includes('  ')) {
-      const wordCount = line.split(' ').length
-      if (wordCount <= 5) {
-        const clean = line.replace(/^#+\s*/, '').trim()
-        if (isUsefulTopic(clean, subjectName)) topics.push(clean)
+
+    // Bullet/numbered → subtopic under current heading
+    if ((isBullet || isNumbered) && current) {
+      const raw = line.replace(/^[-•*\d.)]+\s*/, '').trim()
+      // Try key phrase extraction from longer bullets
+      const phrase = raw.split(/\s+/).length > 5 ? extractKeyPhrase(raw) : raw
+      const pWords = phrase.split(/\s+/)
+      if (pWords.length >= 1 && pWords.length <= 5 && isUsefulTopic(phrase, subjectName)) {
+        if (!current.subtopics.includes(phrase) && current.subtopics.length < 4) {
+          current.subtopics.push(phrase)
+        }
       }
     }
   }
 
-  // Deduplicate and limit
+  // Build rich topic strings: "Photosynthesis: light reactions, Calvin cycle, ATP"
   const seen = new Set<string>()
-  return topics.filter(t => {
-    const key = t.toLowerCase()
-    if (seen.has(key)) return false
+  const result: string[] = []
+
+  for (const cluster of clusters) {
+    const key = cluster.heading.toLowerCase()
+    if (seen.has(key)) continue
     seen.add(key)
-    return true
-  }).slice(0, 20)
+
+    if (cluster.subtopics.length >= 2) {
+      result.push(`${cluster.heading}: ${cluster.subtopics.slice(0, 3).join(', ')}`)
+    } else if (cluster.subtopics.length === 1) {
+      result.push(`${cluster.heading} — ${cluster.subtopics[0]}`)
+    } else {
+      result.push(cluster.heading)
+    }
+    if (result.length >= 15) break
+  }
+
+  return result
 }
 
 // ─── Smart session label based on urgency + topic ──────────────────────────
@@ -184,16 +208,30 @@ function getSessionType(daysLeft: number, sessionIndex: number, totalSessions: n
 }
 
 function buildLabel(type: SessionType, topic: string | undefined, subjectName: string): string {
-  const t = topic || subjectName
+  // topic may already be a rich string like "Photosynthesis: light reactions, Calvin cycle"
+  // In that case, use it directly without prepending another colon
+  if (!topic) {
+    switch (type) {
+      case 'review':        return `Review ${subjectName} notes`
+      case 'flashcards':    return `Flashcard drill — ${subjectName}`
+      case 'practice':      return `Practice problems — ${subjectName}`
+      case 'past_paper':    return `Past paper — ${subjectName}`
+      case 'deep_dive':     return `Deep dive — ${subjectName}`
+      case 'active_recall': return `Active recall — ${subjectName}`
+      case 'summary':       return `Write summary — ${subjectName}`
+      case 'timed':         return `Timed practice — ${subjectName}`
+    }
+  }
+  // Rich topic already has context (e.g. "Photosynthesis: light reactions, Calvin cycle")
   switch (type) {
-    case 'review':       return topic ? `Review: ${t}` : `Review ${subjectName} notes`
-    case 'flashcards':   return topic ? `Flashcards: ${t}` : `Flashcard drill — ${subjectName}`
-    case 'practice':     return topic ? `Practice problems: ${t}` : `Practice problems — ${subjectName}`
-    case 'past_paper':   return topic ? `Past paper Q's on ${t}` : `Past paper — ${subjectName}`
-    case 'deep_dive':    return topic ? `Deep dive: ${t}` : `Deep dive — ${subjectName}`
-    case 'active_recall':return topic ? `Active recall: ${t}` : `Active recall — ${subjectName}`
-    case 'summary':      return topic ? `Summarise: ${t}` : `Write summary — ${subjectName}`
-    case 'timed':        return topic ? `Timed: ${t}` : `Timed practice — ${subjectName}`
+    case 'review':        return `Review: ${topic}`
+    case 'flashcards':    return `Flashcards: ${topic}`
+    case 'practice':      return `Practice: ${topic}`
+    case 'past_paper':    return `Past paper on ${topic}`
+    case 'deep_dive':     return `Deep dive: ${topic}`
+    case 'active_recall': return `Active recall: ${topic}`
+    case 'summary':       return `Summarise: ${topic}`
+    case 'timed':         return `Timed: ${topic}`
   }
 }
 

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { awardXP } from '@/lib/gamification'
 
 type Card = { front: string; back: string; subject: string; noteTitle: string }
 type Note = { id: string; subject: string; title: string; content: string }
@@ -96,6 +97,11 @@ export default function FlashcardsPage() {
   const [filterSubject, setFilterSubject] = useState('all')
   const [mode, setMode] = useState<'browse' | 'study' | 'done'>('browse')
   const [subjects, setSubjects] = useState<string[]>([])
+  const [speedMode, setSpeedMode] = useState(false)
+  const [speedTimeLeft, setSpeedTimeLeft] = useState(60)
+  const [speedScore, setSpeedScore] = useState(0)
+  const [speedDone, setSpeedDone] = useState(false)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     const saved = localStorage.getItem('bloomNotes')
@@ -124,6 +130,8 @@ export default function FlashcardsPage() {
     setFlipped(false)
     if (currentIdx + 1 >= deck.length) {
       setMode('done')
+      awardXP('flashcard_session', { flashcardsReviewed: deck.length })
+      window.dispatchEvent(new CustomEvent('bloomXP', {}))
     } else {
       setTimeout(() => setCurrentIdx(i => i + 1), 150)
     }
@@ -131,6 +139,43 @@ export default function FlashcardsPage() {
 
   const card = deck[currentIdx]
   const progress = deck.length > 0 ? ((currentIdx) / deck.length) * 100 : 0
+
+  function startSpeedRound() {
+    const filtered = filterSubject === 'all' ? allCards : allCards.filter(c => c.subject === filterSubject)
+    setDeck(shuffle(filtered))
+    setCurrentIdx(0)
+    setFlipped(false)
+    setSpeedScore(0)
+    setSpeedDone(false)
+    setSpeedMode(true)
+    setSpeedTimeLeft(60)
+    if (timerRef.current) clearInterval(timerRef.current)
+    timerRef.current = setInterval(() => {
+      setSpeedTimeLeft(t => {
+        if (t <= 1) {
+          clearInterval(timerRef.current!)
+          setSpeedDone(true)
+          awardXP('flashcard_session', { flashcardsReviewed: speedScore })
+          window.dispatchEvent(new CustomEvent('bloomXP', {}))
+          return 0
+        }
+        return t - 1
+      })
+    }, 1000)
+  }
+
+  function speedAnswer(correct: boolean) {
+    if (speedDone) return
+    if (correct) setSpeedScore(s => s + 1)
+    setFlipped(false)
+    if (currentIdx + 1 >= deck.length) {
+      // Loop back
+      setCurrentIdx(0)
+      setDeck(d => shuffle(d))
+    } else {
+      setCurrentIdx(i => i + 1)
+    }
+  }
 
   if (allCards.length === 0) {
     return (
@@ -256,6 +301,66 @@ export default function FlashcardsPage() {
     )
   }
 
+  // SPEED MODE
+  if (speedMode) {
+    if (speedDone || speedTimeLeft === 0) {
+      return (
+        <div className="text-center py-10 max-w-md mx-auto">
+          <div className="text-7xl mb-4">⚡</div>
+          <h2 className="text-2xl font-bold mb-2">Speed Round Over!</h2>
+          <p className="text-white/50 mb-6">You got <span className="text-amber-400 font-bold text-xl">{speedScore}</span> cards correct in 60 seconds</p>
+          <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl mb-6">
+            <div className="text-3xl font-black text-amber-400">{speedScore} ⚡</div>
+            <div className="text-xs text-white/40 mt-1">cards answered correctly</div>
+          </div>
+          <div className="flex gap-3 justify-center">
+            <button onClick={() => { setSpeedMode(false); setSpeedDone(false) }}
+              className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-2xl font-semibold text-white transition-all"
+            >Back to cards</button>
+            <button onClick={startSpeedRound}
+              className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl font-semibold text-white hover:opacity-90 transition-all"
+            >⚡ Play again</button>
+          </div>
+        </div>
+      )
+    }
+    const speedCard = deck[currentIdx]
+    return (
+      <div className="max-w-xl mx-auto">
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={() => { setSpeedMode(false); clearInterval(timerRef.current!) }} className="text-sm text-white/40 hover:text-white">← Exit</button>
+          <div className="flex items-center gap-3">
+            <div className={`text-2xl font-black ${speedTimeLeft <= 10 ? 'text-red-400 animate-pulse' : 'text-amber-400'}`}>{speedTimeLeft}s</div>
+            <div className="text-sm text-white/60">Score: <span className="text-amber-400 font-bold">{speedScore}</span></div>
+          </div>
+        </div>
+        <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mb-6">
+          <div className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-1000" style={{ width: `${(speedTimeLeft / 60) * 100}%` }} />
+        </div>
+        <div onClick={() => setFlipped(f => !f)} className="cursor-pointer" style={{ perspective: '1000px' }}>
+          <div style={{ position:'relative', width:'100%', height:'220px', transformStyle:'preserve-3d', transition:'transform 0.3s', transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
+            <div style={{ position:'absolute', inset:0, backfaceVisibility:'hidden', background:'linear-gradient(135deg,rgba(245,158,11,0.15),rgba(234,88,12,0.1))', border:'1px solid rgba(245,158,11,0.3)', borderRadius:'20px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'24px' }}>
+              <div style={{ fontSize:'10px', color:'rgba(255,255,255,0.3)', marginBottom:'12px', textTransform:'uppercase', letterSpacing:'2px' }}>QUESTION</div>
+              <div style={{ fontSize:'20px', fontWeight:'bold', textAlign:'center', color:'white', lineHeight:1.4 }}>{speedCard?.front}</div>
+              <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.25)', marginTop:'16px' }}>Tap to flip</div>
+            </div>
+            <div style={{ position:'absolute', inset:0, backfaceVisibility:'hidden', transform:'rotateY(180deg)', background:'linear-gradient(135deg,rgba(52,211,153,0.15),rgba(96,165,250,0.1))', border:'1px solid rgba(52,211,153,0.3)', borderRadius:'20px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'24px' }}>
+              <div style={{ fontSize:'10px', color:'rgba(255,255,255,0.3)', marginBottom:'12px', textTransform:'uppercase', letterSpacing:'2px' }}>ANSWER</div>
+              <div style={{ fontSize:'18px', fontWeight:'600', textAlign:'center', color:'white', lineHeight:1.4 }}>{speedCard?.back}</div>
+            </div>
+          </div>
+        </div>
+        {flipped && (
+          <div className="flex gap-3 mt-4 justify-center">
+            <button onClick={() => speedAnswer(false)} className="flex-1 max-w-[140px] py-3 bg-red-500/20 border border-red-500/30 hover:bg-red-500/30 rounded-2xl font-semibold text-red-300 transition-all">✗ Miss</button>
+            <button onClick={() => speedAnswer(true)} className="flex-1 max-w-[140px] py-3 bg-green-500/20 border border-green-500/30 hover:bg-green-500/30 rounded-2xl font-semibold text-green-300 transition-all">✓ Got it!</button>
+          </div>
+        )}
+        {!flipped && <p className="text-center text-white/30 text-sm mt-4">Tap the card to flip it</p>}
+      </div>
+    )
+  }
+
   // BROWSE MODE
   return (
     <div className="space-y-6">
@@ -279,11 +384,18 @@ export default function FlashcardsPage() {
         ))}
       </div>
 
-      <button onClick={startStudy}
-        className="w-full py-4 bg-gradient-to-r from-violet-500 to-pink-500 rounded-2xl font-bold text-white hover:opacity-90 transition-all text-lg"
-      >
-        🚀 Start Study Session ({filterSubject === 'all' ? allCards.length : allCards.filter(c => c.subject === filterSubject).length} cards)
-      </button>
+      <div className="flex gap-3">
+        <button onClick={startStudy}
+          className="flex-1 py-4 bg-gradient-to-r from-violet-500 to-pink-500 rounded-2xl font-bold text-white hover:opacity-90 transition-all"
+        >
+          🚀 Study Session
+        </button>
+        <button onClick={startSpeedRound}
+          className="flex-1 py-4 bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl font-bold text-white hover:opacity-90 transition-all"
+        >
+          ⚡ Speed Round
+        </button>
+      </div>
 
       <div className="space-y-2">
         {(filterSubject === 'all' ? allCards : allCards.filter(c => c.subject === filterSubject)).slice(0, 20).map((card, i) => (

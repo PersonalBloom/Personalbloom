@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { generateStudyPlan, getTasksForDate, getTodayStr, StudyTask, PlanSubject, extractTopicsFromNotes } from '@/lib/planner'
+import { awardXP } from '@/lib/gamification'
 
 type SavedPlan = {
   programId: string
@@ -56,11 +57,43 @@ export default function PlannerClient() {
     }
   }, [])
 
+  function generateRevisionPrompt(task: StudyTask): string {
+    const days = Math.ceil((new Date(task.date).getTime() - new Date().setHours(0,0,0,0)) / 86400000)
+    const urgency = days <= 3 ? 'exam is in ' + days + ' day(s) — focus on high-yield content only'
+      : days <= 7 ? 'exam is in ' + days + ' days — consolidate and practise'
+      : 'exam is in ' + days + ' days — build deep understanding'
+    const notes = (() => {
+      try {
+        const ns = JSON.parse(localStorage.getItem('bloomNotes') || '[]') as Array<{content:string}>
+        const relevant = ns.find(n => n.content.toLowerCase().includes(task.subjectName.toLowerCase()))
+        return relevant ? '\n\nMy notes:\n' + relevant.content.slice(0, 800) : ''
+      } catch { return '' }
+    })()
+    return `${task.subjectName} — ${Math.round(task.durationMinutes / 20)}×20 min — ${task.sessionLabel}\n\n${urgency}${notes}\n\nGive me a structured active revision session with key points, practice questions, and a quick self-test at the end.`
+  }
+
+  function copyPrompt(task: StudyTask) {
+    navigator.clipboard.writeText(generateRevisionPrompt(task))
+    setCopiedId(task.id)
+    setTimeout(() => setCopiedId(null), 2500)
+  }
+
   function toggleDone(taskId: string) {
     setDoneTasks(prev => {
       const next = new Set(prev)
-      if (next.has(taskId)) next.delete(taskId)
-      else next.add(taskId)
+      const wasAlreadyDone = next.has(taskId)
+      if (wasAlreadyDone) next.delete(taskId)
+      else {
+        next.add(taskId)
+        // Award XP for completing a session
+        const result = awardXP('session_complete')
+        // Check if all today's tasks are now done
+        const todayTaskIds = tasks.filter(t => t.date === getTodayStr()).map(t => t.id)
+        const allDone = todayTaskIds.every(id => id === taskId || next.has(id))
+        if (allDone && todayTaskIds.length > 0) awardXP('all_day_complete')
+        // Dispatch event so the plant widget updates
+        window.dispatchEvent(new CustomEvent('bloomXP', { detail: result }))
+      }
       localStorage.setItem('bloomDoneTasks', JSON.stringify([...next]))
       return next
     })
@@ -203,6 +236,15 @@ export default function PlannerClient() {
               <div className="space-y-3">
                 {todayTasks.map(task => {
                   const isDone = doneTasks.has(task.id)
+                  const sessionEmoji = task.sessionType === 'flashcards' ? '🃏'
+                    : task.sessionType === 'past_paper'    ? '📝'
+                    : task.sessionType === 'timed'         ? '⏱️'
+                    : task.sessionType === 'deep_dive'     ? '🔬'
+                    : task.sessionType === 'active_recall' ? '🧠'
+                    : task.sessionType === 'summary'       ? '✍️'
+                    : task.sessionType === 'practice'      ? '💪' : '📖'
+                  const numSessions = Math.max(1, Math.round(task.durationMinutes / 20))
+                  const daysLeft = Math.ceil((new Date(task.date).getTime() - new Date().setHours(0,0,0,0)) / 86400000)
                   return (
                     <div
                       key={task.id}
@@ -211,9 +253,9 @@ export default function PlannerClient() {
                         isDone ? 'border-white/5 bg-white/3 opacity-60' : 'border-white/10 bg-white/5 hover:border-white/20'
                       }`}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-start gap-3">
                         <div
-                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all ${
                             isDone ? 'border-green-500 bg-green-500' : 'border-white/30'
                           }`}
                           style={!isDone ? { borderColor: task.subjectColor } : {}}
@@ -221,35 +263,32 @@ export default function PlannerClient() {
                           {isDone && <span className="text-white text-xs">✓</span>}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                              style={{ background: task.subjectColor + '30', color: task.subjectColor }}
-                            >
-                              {task.subjectName}
-                            </span>
-                            <span className="text-xs text-white/40">{task.durationMinutes} min</span>
+                          {/* Title line — like MyStudyLife */}
+                          <div className={`font-semibold text-sm ${isDone ? 'line-through text-white/40' : 'text-white'}`}>
+                            {sessionEmoji} {task.sessionLabel}
                           </div>
-                          <div className={`text-sm mt-1 font-medium ${isDone ? 'line-through text-white/40' : 'text-white/90'}`}>
-                            {task.sessionType === 'flashcards'    ? '🃏 ' :
-                             task.sessionType === 'past_paper'    ? '📝 ' :
-                             task.sessionType === 'timed'         ? '⏱️ ' :
-                             task.sessionType === 'deep_dive'     ? '🔬 ' :
-                             task.sessionType === 'active_recall' ? '🧠 ' :
-                             task.sessionType === 'summary'       ? '✍️ ' :
-                             task.sessionType === 'practice'      ? '💪 ' : '📖 '}
-                            {task.sessionLabel}
+                          {/* Subtitle — subject · duration · days left */}
+                          <div className="text-xs text-white/40 mt-0.5">
+                            <span style={{ color: task.subjectColor + 'cc' }}>{task.subjectName}</span>
+                            {' · '}
+                            {numSessions}×20 min
+                            {daysLeft > 0 && ` · ${daysLeft} day${daysLeft !== 1 ? 's' : ''} left`}
                           </div>
-                          {!isDone && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); copyPrompt(task) }}
-                              className="mt-2 text-xs px-3 py-1 rounded-lg bg-white/5 hover:bg-violet-500/20 border border-white/10 hover:border-violet-500/40 text-white/40 hover:text-violet-300 transition-all flex items-center gap-1.5"
-                            >
-                              {copiedId === task.id ? '✓ Copied! Paste into ChatGPT' : '📋 Copy revision prompt'}
-                            </button>
-                          )}
                         </div>
+                        {/* Copy icon — small, right side */}
+                        {!isDone && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); copyPrompt(task) }}
+                            title="Copy revision prompt for ChatGPT"
+                            className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 hover:bg-violet-500/20 border border-white/10 hover:border-violet-500/40 text-white/30 hover:text-violet-300 transition-all text-sm"
+                          >
+                            {copiedId === task.id ? '✓' : '📋'}
+                          </button>
+                        )}
                       </div>
+                      {copiedId === task.id && (
+                        <div className="mt-2 ml-9 text-xs text-violet-400">Copied! Paste into ChatGPT ✨</div>
+                      )}
                     </div>
                   )
                 })}

@@ -56,10 +56,17 @@ const TOPIC_JUNK = new Set([
   'week','chapter','section','page','pages','unit','topic','topics','subject',
   'visit','listen','read','write','review','practice','study','complete','check',
   'you','your','this','that','these','those','the','and','or','but','with',
+  'extended','core','higher','standard','sl','hl','aa','ai','dp','myp','pyp',
 ])
 
-function isUsefulTopic(term: string): boolean {
+function isUsefulTopic(term: string, subjectName?: string): boolean {
   if (term.length < 4 || term.length > 60) return false
+  // Skip topics that are just the subject name (or subject name + junk)
+  if (subjectName) {
+    const subjectLower = subjectName.toLowerCase().split(/\s+/)[0]
+    const termLower = term.toLowerCase()
+    if (termLower.startsWith(subjectLower) && term.split(' ').length <= 3) return false
+  }
   // Skip URLs or credential-looking things
   if (term.includes('http') || term.includes('www') || term.includes('@') || /password|user.?id/i.test(term)) return false
   // Skip if it's mostly numbers or symbols
@@ -112,7 +119,7 @@ export function extractTopicsFromNotes(notes: string, subjectName: string): stri
     const colonMatch = line.match(/^(.+?):\s*.{5,}/)
     if (colonMatch) {
       const term = colonMatch[1].replace(/^[-•*#\d.]+\s*/, '').trim()
-      if (isUsefulTopic(term)) topics.push(term)
+      if (isUsefulTopic(term, subjectName)) topics.push(term)
       continue
     }
     // Bullet items — only short ones that look like topics
@@ -121,7 +128,7 @@ export function extractTopicsFromNotes(notes: string, subjectName: string): stri
       const item = bulletMatch[1].trim()
       // Only keep if it's a short phrase (likely a concept, not an instruction sentence)
       const wordCount = item.split(' ').length
-      if (wordCount <= 5 && isUsefulTopic(item)) topics.push(item)
+      if (wordCount <= 5 && isUsefulTopic(item, subjectName)) topics.push(item)
       continue
     }
     // Numbered list items
@@ -129,7 +136,7 @@ export function extractTopicsFromNotes(notes: string, subjectName: string): stri
     if (numberedMatch) {
       const item = numberedMatch[1].trim()
       const wordCount = item.split(' ').length
-      if (wordCount <= 5 && isUsefulTopic(item)) topics.push(item)
+      if (wordCount <= 5 && isUsefulTopic(item, subjectName)) topics.push(item)
       continue
     }
     // Short standalone lines = likely headings/topics
@@ -137,7 +144,7 @@ export function extractTopicsFromNotes(notes: string, subjectName: string): stri
       const wordCount = line.split(' ').length
       if (wordCount <= 5) {
         const clean = line.replace(/^#+\s*/, '').trim()
-        if (isUsefulTopic(clean)) topics.push(clean)
+        if (isUsefulTopic(clean, subjectName)) topics.push(clean)
       }
     }
   }

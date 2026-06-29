@@ -6,6 +6,7 @@ import { BloomieChat } from '@/components/ui/Bloomie'
 import { Button } from '@/components/ui/Button'
 import ExamRescue from '@/components/ui/ExamRescue'
 import StudyWrapped from '@/components/ui/StudyWrapped'
+import StudyPlant from '@/components/ui/StudyPlant'
 import { cn, getStreakEmoji } from '@/lib/utils'
 
 interface Profile {
@@ -234,6 +235,7 @@ export default function DashboardHome() {
       )}
 
       {/* Study Wrapped */}
+      <StudyPlant />
       <StudyWrapped isSoulPlus={isSoulPlusLocal} />
 
       {/* Rescue banner */}

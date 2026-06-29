@@ -31,6 +31,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/auth/login'); return }
     setUser(user)
+    // Creator always gets Soul+ free
+    if (user.email === 'u9393166061@gmail.com') {
+      localStorage.setItem('bloomSoulPlus', 'true')
+    }
   }, [supabase, router])
 
   useEffect(() => { checkUser() }, [checkUser])
@@ -92,7 +96,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           key={pathname}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25 }}
+          transition={{ duration: 0.12 }}
           className="p-6 max-w-5xl mx-auto"
         >
           {children}

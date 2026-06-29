@@ -115,6 +115,11 @@ export default function DashboardHome() {
   ]
 
   const loadProfile = useCallback(async () => {
+    // 1. Render instantly from cache
+    const cached = localStorage.getItem('bloomProfileCache')
+    if (cached) setProfile(JSON.parse(cached))
+
+    // 2. Refresh from Supabase in background
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const { data } = await supabase
@@ -122,7 +127,10 @@ export default function DashboardHome() {
       .select('name, subjects, plan, streak, growth_points, total_sessions')
       .eq('id', user.id)
       .single()
-    if (data) setProfile(data as Profile)
+    if (data) {
+      setProfile(data as Profile)
+      localStorage.setItem('bloomProfileCache', JSON.stringify(data))
+    }
   }, [supabase])
 
   useEffect(() => { loadProfile() }, [loadProfile])

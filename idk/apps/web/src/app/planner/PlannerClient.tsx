@@ -38,20 +38,30 @@ export default function PlannerClient() {
     if (saved) {
       const p: SavedPlan = JSON.parse(saved)
       setPlan(p)
-      // Re-extract topics from current notes (fixes stale topics from old plans)
-      const currentNotes = (() => {
-        try {
-          const ns = JSON.parse(localStorage.getItem('bloomNotes') || '[]') as Array<{content:string}>
-          return ns.map(n => n.content).join('\n\n')
-        } catch { return '' }
-      })()
-      // Always call extractTopicsFromNotes — it falls back to curriculum topics when notes are empty
-      const freshSubjects = p.subjects.map((s: PlanSubject) => ({
-        ...s,
-        topics: extractTopicsFromNotes(currentNotes, s.name),
-      }))
-      const generated = generateStudyPlan(freshSubjects, p.hoursPerDay)
-      setTasks(generated)
+
+      // Use cached tasks for instant render
+      const cachedTasks = localStorage.getItem('bloomTasksCache')
+      if (cachedTasks) {
+        setTasks(JSON.parse(cachedTasks))
+      }
+
+      // Recalculate in background (topic extraction can be slow on big notes)
+      setTimeout(() => {
+        const currentNotes = (() => {
+          try {
+            const ns = JSON.parse(localStorage.getItem('bloomNotes') || '[]') as Array<{content:string}>
+            return ns.map(n => n.content).join('\n\n')
+          } catch { return '' }
+        })()
+        // Always call extractTopicsFromNotes — it falls back to curriculum topics when notes are empty
+        const freshSubjects = p.subjects.map((s: PlanSubject) => ({
+          ...s,
+          topics: extractTopicsFromNotes(currentNotes, s.name),
+        }))
+        const generated = generateStudyPlan(freshSubjects, p.hoursPerDay)
+        setTasks(generated)
+        localStorage.setItem('bloomTasksCache', JSON.stringify(generated))
+      }, 0)
     }
     if (savedDone) {
       setDoneTasks(new Set(JSON.parse(savedDone)))

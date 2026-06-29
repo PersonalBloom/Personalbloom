@@ -1,3 +1,132 @@
+// ─── Fallback topic library (MYP/IB Grade 9-10 curriculum) ───────────────────
+// Used when notes don't contain extractable topics for a subject
+const FALLBACK_TOPICS: Record<string, string[]> = {
+  // Mathematics
+  'mathematics core': [
+    'algebra: solving equations, inequalities',
+    'linear functions: slope, y-intercept, graphing',
+    'quadratic functions: factoring, vertex form',
+    'geometry: area, volume, Pythagoras',
+    'trigonometry: sin, cos, tan, right triangles',
+    'statistics: mean, median, mode, IQR',
+    'probability: tree diagrams, combined events',
+    'simultaneous equations: substitution, elimination',
+  ],
+  'mathematics core+': [
+    'algebra: solving equations, inequalities',
+    'quadratic functions: factoring, vertex, discriminant',
+    'linear functions: slope, parallel, perpendicular',
+    'trigonometry: sin, cos, tan, exact values',
+    'statistics: standard deviation, normal distribution',
+    'probability: conditional, Bayes theorem',
+    'simultaneous equations: 3 unknowns',
+    'sequences and series: arithmetic, geometric',
+  ],
+  'mathematics extended': [
+    'algebra: polynomial division, complex numbers',
+    'functions: domain, range, inverse, composite',
+    'trigonometry: unit circle, identities, radians',
+    'calculus: limits, derivatives, integration basics',
+    'statistics: regression, correlation, hypothesis testing',
+    'probability: binomial distribution, normal distribution',
+    'sequences: sigma notation, proof by induction',
+    'vectors: magnitude, dot product, cross product',
+  ],
+  'mathematics': [
+    'algebra: solving equations, inequalities',
+    'linear functions: slope, y-intercept, graphing',
+    'quadratic functions: factoring, vertex form',
+    'geometry: area, volume, Pythagoras',
+    'trigonometry: sin, cos, tan',
+    'statistics: mean, median, mode, IQR',
+    'probability: tree diagrams, combined events',
+  ],
+  // Sciences
+  'biology': [
+    'cell biology: organelles, membrane transport',
+    'genetics: DNA, inheritance, Mendel',
+    'photosynthesis: light reactions, Calvin cycle',
+    'cellular respiration: glycolysis, Krebs cycle, ATP',
+    'ecology: food webs, carbon cycle, biodiversity',
+    'evolution: natural selection, speciation',
+    'human physiology: digestion, circulation, nervous system',
+    'plant biology: transpiration, hormones',
+  ],
+  'chemistry': [
+    'atomic structure: protons, neutrons, electrons, shells',
+    'periodic table: groups, periods, trends',
+    'chemical bonding: ionic, covalent, metallic',
+    'chemical equations: balancing, molar ratios',
+    'acids and bases: pH, neutralisation, indicators',
+    'organic chemistry: alkanes, alkenes, functional groups',
+    'redox reactions: oxidation states, electron transfer',
+    'energetics: exothermic, endothermic, enthalpy',
+  ],
+  'physics': [
+    'forces and motion: velocity, acceleration, Newton\'s laws',
+    'energy: kinetic, potential, conservation, work, power',
+    'electricity: current, voltage, resistance, Ohm\'s law',
+    'waves: frequency, wavelength, reflection, refraction',
+    'magnetism: magnetic fields, electromagnets',
+    'thermal physics: heat transfer, specific heat capacity',
+    'atomic physics: radioactivity, half-life, nuclear reactions',
+  ],
+  // Humanities / Social Sciences
+  'humanities': [
+    'civil rights movement: key events, leaders, legislation',
+    'Martin Luther King: I Have a Dream, Montgomery, SCLC',
+    'protest movements: methods, impact, change',
+    'historical sources: bias, reliability, perspective',
+    'economic systems: capitalism, socialism, development',
+    'globalisation: trade, migration, cultural exchange',
+  ],
+  // Languages
+  'english language and literature': [
+    'literary analysis: theme, tone, structure, language',
+    'paper 1: unseen texts, guided analysis',
+    'paper 2: comparative essay writing',
+    'grammar: syntax, punctuation, style',
+    'vocabulary: register, connotation, inference',
+  ],
+  'french language and literature': [
+    'conjugaison: présent, passé composé, imparfait',
+    'subjonctif et conditionnel',
+    'analyse littéraire: thème, style, structure',
+    'expression écrite: essai, commentaire',
+  ],
+  'french acquisition': [
+    'conjugation: présent, imparfait, passé composé',
+    'vocabulary: everyday topics, formal register',
+    'grammar: pronouns, adjectives, agreement',
+    'listening and reading comprehension',
+  ],
+  'spanish language and literature': [
+    'conjugación: presente, pretérito, imperfecto',
+    'análisis literaria: tema, estilo, estructura',
+    'subjuntivo y condicional',
+    'expresión escrita: ensayo, comentario',
+  ],
+  'spanish acquisition': [
+    'conjugation: presente, pretérito indefinido',
+    'vocabulary: everyday topics, formal register',
+    'grammar: ser vs estar, pronouns, agreement',
+    'acentuación: reglas y aplicación',
+  ],
+}
+
+function getFallbackTopics(subjectName: string): string[] {
+  const lower = subjectName.toLowerCase().trim()
+  // Exact match first
+  if (FALLBACK_TOPICS[lower]) return FALLBACK_TOPICS[lower]
+  // Partial match
+  for (const key of Object.keys(FALLBACK_TOPICS)) {
+    if (lower.includes(key) || key.includes(lower.split(' ')[0])) {
+      return FALLBACK_TOPICS[key]
+    }
+  }
+  return []
+}
+
 export type PlanSubject = {
   id: string
   name: string
@@ -122,7 +251,7 @@ export function extractTopicsFromNotes(notes: string, subjectName: string): stri
 
   for (const line of sourceLines) {
     const isBullet   = /^[-•*]\s+/.test(line)
-    const isNumbered = /^\d+[.)]\s+/.test(line)
+    const isNumbered = /^\d+[.)]\s+/.test(line) || /^\d+\.\d+\s+/.test(line) // "1." or "1.1 "
 
     // "Term: long definition..." → heading cluster + first key phrase as subtopic
     const colonDef = line.match(/^([^:\n]{3,45}):\s+(.{8,})$/)
@@ -137,7 +266,12 @@ export function extractTopicsFromNotes(notes: string, subjectName: string): stri
     }
 
     // Short standalone line → new cluster heading
-    const cleanLine = line.replace(/^#+\s*/, '').trim()
+    // Strip heading markers and leading numbers like "1.1 " or "Topic 2 "
+    const cleanLine = line
+      .replace(/^#+\s*/, '')
+      .replace(/^\d+[\d.]*\s+/, '')  // strip "1.1 " or "2.3 "
+      .replace(/^Topic\s+\d+\s*/i, '') // strip "Topic 1 "
+      .trim()
     const wordCount = cleanLine.split(/\s+/).length
     if (!isBullet && !isNumbered && wordCount <= 6 && cleanLine.length >= 4 && cleanLine.length <= 55) {
       if (isUsefulTopic(cleanLine, subjectName)) {
@@ -178,6 +312,12 @@ export function extractTopicsFromNotes(notes: string, subjectName: string): stri
       result.push(cluster.heading)
     }
     if (result.length >= 15) break
+  }
+
+  // If we found fewer than 2 real topics, fall back to curriculum library
+  if (result.length < 2) {
+    const fallback = getFallbackTopics(subjectName)
+    if (fallback.length > 0) return fallback
   }
 
   return result

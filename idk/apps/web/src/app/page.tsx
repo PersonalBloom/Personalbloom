@@ -39,6 +39,7 @@ export default function LandingPage() {
           <span className="font-bold text-lg glow-text">PersonalBloom</span>
         </div>
         <div className="flex items-center gap-3">
+          <Link href="/pricing" className="text-sm text-white/60 hover:text-white transition-colors">Pricing</Link>
           <Link href="/auth/login">
             <Button variant="ghost" size="sm">Log in</Button>
           </Link>
@@ -79,7 +80,7 @@ export default function LandingPage() {
             </Link>
           </div>
           <p className="mt-4 text-sm text-white/30">
-            No credit card needed · 7-day Soul+ trial included
+            No credit card needed · 3-day Soul+ trial included
           </p>
         </motion.div>
       </section>
@@ -156,10 +157,10 @@ export default function LandingPage() {
             </div>
             <Link href="/auth/signup">
               <Button variant="soul" size="lg">
-                ✨ Try Soul+ free for 7 days
+                ✨ Try Soul+ free for 3 days
               </Button>
             </Link>
-            <p className="mt-3 text-xs text-white/30">Then just $4.99/month. Cancel anytime.</p>
+            <p className="mt-3 text-xs text-white/30">Then just $9.99/month. Cancel anytime.</p>
           </div>
         </motion.div>
       </section>

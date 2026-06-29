@@ -106,13 +106,40 @@ export default function DashboardHome() {
   const [isSoulPlusLocal, setIsSoulPlusLocal] = useState(false)
 
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  const [bloomieMsg, setBloomieMsg] = useState('')
 
-  const bloomieMsgs = [
-    `${greeting}! Ready to learn something amazing today? 🌸`,
-    "Your streak is on fire! Keep it going bestie! 🔥",
-    "You've got this! One session at a time 💪✨",
-    "Let's make today count! Bloomie believes in you 🌟",
-  ]
+  function buildBloomieMsg(profileData: Profile | null) {
+    // Read real context
+    const plan = (() => { try { return JSON.parse(localStorage.getItem('bloomPlan') || 'null') } catch { return null } })()
+    const doneTasks: string[] = (() => { try { return JSON.parse(localStorage.getItem('bloomDoneTasks') || '[]') } catch { return [] } })()
+    const game = (() => { try { return JSON.parse(localStorage.getItem('bloomGame') || 'null') } catch { return null } })()
+    const name = profileData?.name?.split(' ')[0] || ''
+
+    // Nearest exam
+    const subjects: Array<{name: string, examDate: string}> = plan?.subjects || []
+    const upcoming = subjects
+      .filter(s => s.examDate)
+      .map(s => ({ name: s.name, days: Math.ceil((new Date(s.examDate).getTime() - Date.now()) / 86400000) }))
+      .filter(s => s.days >= 0)
+      .sort((a, b) => a.days - b.days)
+    const nearest = upcoming[0]
+
+    // Tasks done today
+    const todayKey = new Date().toISOString().split('T')[0]
+    const streak = profileData?.streak || game?.streak || 0
+
+    if (nearest && nearest.days === 0) return `${nearest.name} exam is TODAY ${name}!! You've got this, go be amazing 🌸💪`
+    if (nearest && nearest.days === 1) return `${nearest.name} exam is tomorrow!! Last push — you've done the work, now trust yourself 🌟`
+    if (nearest && nearest.days <= 3) return `${nearest.name} in ${nearest.days} days. Focus on weak spots, not everything. You've got this 💜`
+    if (nearest && nearest.days <= 7) return `${nearest.name} is in ${nearest.days} days — a solid week. Consistent sessions beat cramming every time 📚`
+    if (streak >= 7) return `${streak}-day streak!! ${name} you're literally on fire right now 🔥 Keep it going!`
+    if (streak >= 3) return `${streak} days in a row! 🌸 The consistency is showing — don't break the chain.`
+    if (doneTasks.length > 0 && hour >= 18) return `You already got sessions done today${name ? ', ' + name : ''}! Enjoy your evening, you earned it 🌙`
+    if (hour < 9) return `Early start! ✨ ${name ? name + ', ' : ''}morning sessions are literally the best for focus.`
+    if (hour >= 22) return `It's late${name ? ' ' + name : ''} 🌙 Get some sleep — a rested brain learns way better than a tired one.`
+    if (nearest) return `${nearest.name} in ${nearest.days} days — you've got time, just stay consistent 🌸`
+    return `${greeting}${name ? ', ' + name : ''}! Ready to make today count? 🌸`
+  }
 
   const loadProfile = useCallback(async () => {
     // 1. Render instantly from cache
@@ -148,7 +175,7 @@ export default function DashboardHome() {
     }
   }, [])
 
-  const msg = bloomieMsgs[Math.floor(Math.random() * bloomieMsgs.length)]
+  useEffect(() => { setBloomieMsg(buildBloomieMsg(profile)) }, [profile])
 
   return (
     <div className="space-y-8">
@@ -169,7 +196,7 @@ export default function DashboardHome() {
       </div>
 
       {/* Bloomie chat */}
-      <BloomieChat message={msg} />
+      <BloomieChat message={bloomieMsg || `${greeting}! Let's make today count 🌸`} />
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-4">

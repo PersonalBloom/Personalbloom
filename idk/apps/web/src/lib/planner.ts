@@ -80,7 +80,21 @@ const FALLBACK_TOPICS: Record<string, string[]> = {
     'economic systems: capitalism, socialism, development',
     'globalisation: trade, migration, cultural exchange',
   ],
-  // Languages
+  // Languages — also match shorthand like "English A", "English B"
+  'english a': [
+    'literary analysis: theme, tone, structure, language',
+    'paper 1: unseen texts, guided literary analysis',
+    'paper 2: comparative essay — two texts',
+    'higher level essay: independent literary study',
+    'individual oral: culture, identity, global issues',
+  ],
+  'english b': [
+    'reading comprehension: inference, text types',
+    'writing skills: formal, informal, persuasive',
+    'grammar: tenses, syntax, punctuation',
+    'vocabulary: register, connotation, collocations',
+    'listening skills: gist, detail, attitude',
+  ],
   'english language and literature': [
     'literary analysis: theme, tone, structure, language',
     'paper 1: unseen texts, guided analysis',
@@ -118,9 +132,18 @@ function getFallbackTopics(subjectName: string): string[] {
   const lower = subjectName.toLowerCase().trim()
   // Exact match first
   if (FALLBACK_TOPICS[lower]) return FALLBACK_TOPICS[lower]
-  // Partial match
+  // "English A" → "english a", "English B" → "english b"
+  const firstTwo = lower.split(/\s+/).slice(0, 2).join(' ')
+  if (FALLBACK_TOPICS[firstTwo]) return FALLBACK_TOPICS[firstTwo]
+  // "Chemistry" → matches "chemistry" key
+  // "Mathematics Core" → matches "mathematics core"
   for (const key of Object.keys(FALLBACK_TOPICS)) {
-    if (lower.includes(key) || key.includes(lower.split(' ')[0])) {
+    // Check if subject starts with the key or vice versa
+    if (lower.startsWith(key) || key.startsWith(lower)) {
+      return FALLBACK_TOPICS[key]
+    }
+    // Check if subject contains the key
+    if (lower.includes(key)) {
       return FALLBACK_TOPICS[key]
     }
   }
@@ -225,7 +248,8 @@ function extractKeyPhrase(text: string): string {
 }
 
 export function extractTopicsFromNotes(notes: string, subjectName: string): string[] {
-  if (!notes || !notes.trim()) return []
+  // No notes at all → go straight to curriculum fallback
+  if (!notes || !notes.trim()) return getFallbackTopics(subjectName)
   const lines = notes.split('\n').map(l => l.trim()).filter(Boolean)
 
   // Narrow to lines relevant to this subject

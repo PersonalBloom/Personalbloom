@@ -45,9 +45,10 @@ export default function PlannerClient() {
           return ns.map(n => n.content).join('\n\n')
         } catch { return '' }
       })()
+      // Always call extractTopicsFromNotes — it falls back to curriculum topics when notes are empty
       const freshSubjects = p.subjects.map((s: PlanSubject) => ({
         ...s,
-        topics: currentNotes ? extractTopicsFromNotes(currentNotes, s.name) : s.topics,
+        topics: extractTopicsFromNotes(currentNotes, s.name),
       }))
       const generated = generateStudyPlan(freshSubjects, p.hoursPerDay)
       setTasks(generated)

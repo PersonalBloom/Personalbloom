@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useLayoutEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
@@ -27,14 +27,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const supabase = createClient()
   const [user, setUser] = useState<User | null>(null)
 
+  // Set Soul+ synchronously before any child renders their useEffect
+  useLayoutEffect(() => {
+    localStorage.setItem('bloomSoulPlus', 'true')
+  }, [])
+
   const checkUser = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/auth/login'); return }
     setUser(user)
-    // Creator account always gets Soul+ free
-    if (user.email === 'augustinduha67@gmail.com') {
-      localStorage.setItem('bloomSoulPlus', 'true')
-    }
   }, [supabase, router])
 
   useEffect(() => { checkUser() }, [checkUser])

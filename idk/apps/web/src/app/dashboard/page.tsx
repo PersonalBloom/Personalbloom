@@ -103,7 +103,7 @@ export default function DashboardHome() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [hour] = useState(new Date().getHours())
   const [rescueMode, setRescueMode] = useState(false)
-  const [isSoulPlusLocal, setIsSoulPlusLocal] = useState(false)
+  const [isSoulPlusLocal, setIsSoulPlusLocal] = useState(true)
 
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
   const [bloomieMsg, setBloomieMsg] = useState('')

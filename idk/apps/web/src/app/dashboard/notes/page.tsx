@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 type Note = {
   id: string
@@ -406,8 +407,11 @@ function TextbooksTab() {
 
 // ─── Main page ──────────────────────────────────────────────────────────────
 
-export default function NotesPage() {
-  const [tab, setTab] = useState<'notes' | 'textbooks'>('notes')
+function NotesPageInner() {
+  const searchParams = useSearchParams()
+  const [tab, setTab] = useState<'notes' | 'textbooks'>(
+    searchParams.get('tab') === 'textbooks' ? 'textbooks' : 'notes'
+  )
 
   return (
     <div className="space-y-6">
@@ -431,5 +435,13 @@ export default function NotesPage() {
 
       {tab === 'notes' ? <NotesTab /> : <TextbooksTab />}
     </div>
+  )
+}
+
+export default function NotesPage() {
+  return (
+    <Suspense fallback={null}>
+      <NotesPageInner />
+    </Suspense>
   )
 }

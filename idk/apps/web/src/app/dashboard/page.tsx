@@ -234,6 +234,9 @@ export default function DashboardHome() {
         </a>
       )}
 
+      {/* Textbooks */}
+      <TextbooksWidget />
+
       {/* Study Wrapped */}
       <StudyPlant />
       <StudyWrapped isSoulPlus={isSoulPlusLocal} />

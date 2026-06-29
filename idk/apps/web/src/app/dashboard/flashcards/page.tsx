@@ -47,7 +47,7 @@ function parseCards(note: Note): Card[] {
       if (!isJunkTerm(term)) {
         const verb = line.match(/\bare\b/i) ? 'are' : 'is'
         cards.push({
-          front: \`What \${verb} \${term}?\`,
+          front: `What ${verb} ${term}?`,
           back: def,
           subject: note.subject,
           noteTitle: note.title,

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { BloomieChat } from '@/components/ui/Bloomie'
 import { Button } from '@/components/ui/Button'
 import ExamRescue from '@/components/ui/ExamRescue'
+import StudyWrapped from '@/components/ui/StudyWrapped'
 import { cn, getStreakEmoji } from '@/lib/utils'
 
 interface Profile {
@@ -197,6 +198,9 @@ export default function DashboardHome() {
           <div className="text-3xl group-hover:scale-110 transition-transform">🌸</div>
         </div>
       </a>
+
+      {/* Study Wrapped */}
+      <StudyWrapped isSoulPlus={profile?.plan === 'soul_plus' || profile?.plan === 'trial'} />
 
       {/* Rescue banner */}
       <div className="card border-red-500/30 bg-red-500/5 flex items-center justify-between gap-4">

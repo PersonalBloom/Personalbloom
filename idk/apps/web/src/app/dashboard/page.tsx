@@ -44,6 +44,60 @@ function XPBar({ points }: { points: number }) {
   )
 }
 
+type Textbook = { id: string; subject: string; title: string; pageCount: number; addedAt: string }
+
+function TextbooksWidget() {
+  const [textbooks, setTextbooks] = useState<Textbook[]>([])
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('bloomTextbooks')
+      if (saved) setTextbooks(JSON.parse(saved))
+    } catch {}
+  }, [])
+
+  return (
+    <div className="card">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <div className="font-bold text-lg mb-0.5">📚 My Textbooks</div>
+          <p className="text-xs text-white/40">Bloomie reads these for every study session &amp; revision prompt</p>
+        </div>
+        <a href="/dashboard/notes?tab=textbooks"
+          className="text-sm px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl text-white/60 hover:text-white transition-all"
+        >+ Upload</a>
+      </div>
+      {textbooks.length === 0 ? (
+        <a href="/dashboard/notes?tab=textbooks"
+          className="flex items-center gap-4 p-4 border-2 border-dashed border-white/10 rounded-2xl hover:border-violet-500/40 hover:bg-violet-500/5 transition-all group"
+        >
+          <div className="text-4xl">📖</div>
+          <div>
+            <div className="font-medium text-white/70 group-hover:text-white transition-colors">Upload your MYP / IB textbooks</div>
+            <div className="text-xs text-white/30 mt-0.5">Biology, Maths, Chemistry... Bloomie will read the whole thing</div>
+          </div>
+        </a>
+      ) : (
+        <div className="space-y-2">
+          {textbooks.map(tb => (
+            <div key={tb.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/10">
+              <span className="text-2xl">📖</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">{tb.title}</div>
+                <div className="text-xs text-white/40">{tb.subject} · {tb.pageCount} pages</div>
+              </div>
+              <div className="text-xs text-green-400 flex-shrink-0">✓ Active</div>
+            </div>
+          ))}
+          <a href="/dashboard/notes?tab=textbooks"
+            className="block text-center text-xs text-white/30 hover:text-white/60 pt-1 transition-colors"
+          >+ Add another textbook</a>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function DashboardHome() {
   const supabase = createClient()
   const [profile, setProfile] = useState<Profile | null>(null)

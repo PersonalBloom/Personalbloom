@@ -10,7 +10,7 @@ import type { User } from '@supabase/supabase-js'
 
 const NAV = [
   { href: '/dashboard',           icon: '🏠', label: 'Home' },
-  { href: '/dashboard/planner',   icon: '📅', label: 'Planner' },
+  { href: '/planner',              icon: '📅', label: 'Planner' },
   { href: '/dashboard/quiz',      icon: '🧠', label: 'Quiz' },
   { href: '/dashboard/pomodoro',  icon: '🎧', label: 'Focus' },
   { href: '/dashboard/progress',  icon: '📊', label: 'Progress' },

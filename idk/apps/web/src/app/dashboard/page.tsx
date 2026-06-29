@@ -154,13 +154,24 @@ export default function DashboardHome() {
         </div>
       )}
 
+      {/* Study Plan Banner */}
+      <a href="/planner" className="block p-5 bg-gradient-to-r from-violet-500/20 to-pink-500/20 border border-violet-500/40 rounded-2xl hover:border-violet-400/60 transition-all group">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-bold text-lg mb-1">📅 My Study Plan</div>
+            <p className="text-white/50 text-sm">Your daily revision schedule — tap to see today&apos;s sessions</p>
+          </div>
+          <div className="text-3xl group-hover:scale-110 transition-transform">🌸</div>
+        </div>
+      </a>
+
       {/* Quick actions */}
       <div>
         <h2 className="text-lg font-bold mb-4">⚡ Quick Actions</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { href: '/dashboard/quiz',     icon: '🧠', label: 'Start Quiz' },
-            { href: '/dashboard/planner',  icon: '📅', label: 'Add Task' },
+            { href: '/planner/setup',      icon: '📝', label: 'Edit Plan' },
             { href: '/dashboard/pomodoro', icon: '🎧', label: 'Focus Room' },
             { href: '/dashboard/progress', icon: '📈', label: 'My Progress' },
           ].map(a => (

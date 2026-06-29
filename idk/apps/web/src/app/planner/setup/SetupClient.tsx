@@ -13,52 +13,117 @@ const PRIORITIES = [
   { value: 'low', label: '💚 Low', desc: 'Got this covered' },
 ]
 
+const STUDY_MODES = [
+  { value: 'standard', label: '📖 Standard', desc: 'Balanced daily sessions' },
+  { value: 'pomodoro_25', label: '🍅 Pomodoro 25/5', desc: '25 min work, 5 min break' },
+  { value: 'pomodoro_50', label: '🍅 Pomodoro 50/10', desc: '50 min work, 10 min break' },
+  { value: 'custom', label: '⚙️ Custom', desc: 'Set your own intervals' },
+]
+
+const TIME_PRESETS = [
+  { value: 30, label: '30 min' },
+  { value: 45, label: '45 min' },
+  { value: 60, label: '1 hour' },
+  { value: 90, label: '1h 30' },
+  { value: 120, label: '2 hours' },
+  { value: 180, label: '3 hours' },
+  { value: 240, label: '4 hours' },
+  { value: 300, label: '5 hours' },
+]
+
+type SubjectEntry = {
+  name: string
+  examDate: string
+  priority: 'high' | 'medium' | 'low'
+  isDaily: boolean // true = no exam, just daily revision
+}
+
 export default function SetupClient() {
   const router = useRouter()
   const [step, setStep] = useState(0)
   const [programId, setProgramId] = useState('')
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([])
-  const [subjectDetails, setSubjectDetails] = useState<Record<string, { examDate: string; priority: 'high' | 'medium' | 'low' }>>({})
-  const [hoursPerDay, setHoursPerDay] = useState(3)
+  const [customSubject, setCustomSubject] = useState('')
+  const [subjectDetails, setSubjectDetails] = useState<Record<string, SubjectEntry>>({})
+  const [minutesPerDay, setMinutesPerDay] = useState(120)
+  const [studyMode, setStudyMode] = useState('standard')
+  const [customWork, setCustomWork] = useState(20)
+  const [customBreak, setCustomBreak] = useState(5)
   const [saving, setSaving] = useState(false)
 
   const program = getProgramById(programId)
 
   function toggleSubject(name: string) {
-    setSelectedSubjects(prev =>
-      prev.includes(name) ? prev.filter(s => s !== name) : [...prev, name]
-    )
-    if (!subjectDetails[name]) {
-      setSubjectDetails(prev => ({ ...prev, [name]: { examDate: '', priority: 'medium' } }))
+    if (selectedSubjects.includes(name)) {
+      setSelectedSubjects(prev => prev.filter(s => s !== name))
+    } else {
+      setSelectedSubjects(prev => [...prev, name])
+      if (!subjectDetails[name]) {
+        setSubjectDetails(prev => ({ ...prev, [name]: { name, examDate: '', priority: 'medium', isDaily: false } }))
+      }
     }
   }
 
-  function updateSubjectDetail(name: string, field: 'examDate' | 'priority', value: string) {
+  function addCustomSubject() {
+    const trimmed = customSubject.trim()
+    if (!trimmed || selectedSubjects.includes(trimmed)) return
+    setSelectedSubjects(prev => [...prev, trimmed])
+    setSubjectDetails(prev => ({ ...prev, [trimmed]: { name: trimmed, examDate: '', priority: 'medium', isDaily: false } }))
+    setCustomSubject('')
+  }
+
+  function updateDetail<K extends keyof SubjectEntry>(name: string, field: K, value: SubjectEntry[K]) {
     setSubjectDetails(prev => ({ ...prev, [name]: { ...prev[name], [field]: value } }))
   }
 
   function canProceed() {
     if (step === 0) return !!programId
     if (step === 1) return selectedSubjects.length > 0
-    if (step === 2) return selectedSubjects.every(s => subjectDetails[s]?.examDate)
-    if (step === 3) return hoursPerDay >= 1
+    if (step === 2) return selectedSubjects.every(s => {
+      const d = subjectDetails[s]
+      return d?.isDaily || !!d?.examDate
+    })
+    if (step === 3) return minutesPerDay >= 15
     return true
   }
 
   function savePlan() {
     setSaving(true)
-    const ids = selectedSubjects.map(s => s.toLowerCase().replace(/\s+/g, '_'))
+    const ids = selectedSubjects.map(s => s.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''))
     const colorMap = assignColors(ids.map(id => ({ id })))
-    const subjects: PlanSubject[] = selectedSubjects.map((name, i) => ({
-      id: ids[i],
-      name,
-      examDate: subjectDetails[name].examDate,
-      color: colorMap[ids[i]],
-      priority: subjectDetails[name].priority,
+    const subjects: PlanSubject[] = selectedSubjects.map((name, i) => {
+      const detail = subjectDetails[name]
+      const examDate = detail?.isDaily
+        ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 1 year from now for daily
+        : (detail?.examDate || '')
+      return {
+        id: ids[i],
+        name,
+        examDate,
+        color: colorMap[ids[i]],
+        priority: detail?.priority || 'medium',
+        isDaily: detail?.isDaily || false,
+      }
+    })
+    localStorage.setItem('bloomPlan', JSON.stringify({
+      programId,
+      subjects,
+      minutesPerDay,
+      hoursPerDay: minutesPerDay / 60,
+      studyMode,
+      customWork,
+      customBreak,
+      createdAt: new Date().toISOString(),
     }))
-    localStorage.setItem('bloomPlan', JSON.stringify({ programId, subjects, hoursPerDay, createdAt: new Date().toISOString() }))
     setSaving(false)
     router.push('/planner')
+  }
+
+  const formatTime = (mins: number) => {
+    if (mins < 60) return `${mins} min`
+    const h = Math.floor(mins / 60)
+    const m = mins % 60
+    return m > 0 ? `${h}h ${m}min` : `${h}h`
   }
 
   return (
@@ -69,7 +134,7 @@ export default function SetupClient() {
           <h1 className="font-bold text-lg">Study Plan Setup</h1>
           <p className="text-white/50 text-sm">Let Bloomie build your perfect revision schedule</p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto hidden sm:flex items-center gap-2">
           {STEPS.map((s, i) => (
             <div key={s} className="flex items-center gap-2">
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
@@ -79,14 +144,16 @@ export default function SetupClient() {
               }`}>
                 {i < step ? '✓' : i + 1}
               </div>
-              {i < STEPS.length - 1 && <div className={`w-8 h-px ${i < step ? 'bg-violet-500' : 'bg-white/10'}`} />}
+              {i < STEPS.length - 1 && <div className={`w-6 h-px ${i < step ? 'bg-violet-500' : 'bg-white/10'}`} />}
             </div>
           ))}
         </div>
+        <div className="sm:hidden text-sm text-white/40">Step {step + 1}/{STEPS.length}</div>
       </div>
 
       <div className="max-w-2xl mx-auto px-6 py-10">
 
+        {/* STEP 0: Program */}
         {step === 0 && (
           <div>
             <div className="mb-8">
@@ -95,9 +162,7 @@ export default function SetupClient() {
             </div>
             <div className="grid grid-cols-1 gap-3">
               {PROGRAMS.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => setProgramId(p.id)}
+                <button key={p.id} onClick={() => setProgramId(p.id)}
                   className={`p-4 rounded-2xl border text-left transition-all ${
                     programId === p.id ? 'border-violet-500 bg-violet-500/20' : 'border-white/10 bg-white/5 hover:border-white/30'
                   }`}
@@ -110,141 +175,236 @@ export default function SetupClient() {
           </div>
         )}
 
-        {step === 1 && program && (
+        {/* STEP 1: Subjects */}
+        {step === 1 && (
           <div>
             <div className="mb-8">
               <h2 className="text-2xl font-bold mb-2">Which subjects? 📚</h2>
-              <p className="text-white/50">Select all the subjects you have exams for.</p>
+              <p className="text-white/50">Select yours, or add custom ones below.</p>
             </div>
-            <div className="space-y-6">
-              {program.subjects.map(group => (
-                <div key={group.group}>
-                  <div className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-2">{group.group}</div>
-                  <div className="flex flex-wrap gap-2">
-                    {group.subjects.map(subj => (
-                      <button
-                        key={subj}
-                        onClick={() => toggleSubject(subj)}
-                        className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
-                          selectedSubjects.includes(subj) ? 'bg-violet-500 text-white' : 'bg-white/10 text-white/70 hover:bg-white/20'
-                        }`}
-                      >
-                        {subj}
-                      </button>
-                    ))}
+
+            {program && (
+              <div className="space-y-5 mb-8">
+                {program.subjects.map(group => (
+                  <div key={group.group}>
+                    <div className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-2">{group.group}</div>
+                    <div className="flex flex-wrap gap-2">
+                      {group.subjects.map(subj => (
+                        <button key={subj} onClick={() => toggleSubject(subj)}
+                          className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                            selectedSubjects.includes(subj) ? 'bg-violet-500 text-white' : 'bg-white/10 text-white/70 hover:bg-white/20'
+                          }`}
+                        >{subj}</button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+
+            {/* Custom subject input */}
+            <div className="p-4 bg-white/5 border border-white/10 rounded-2xl">
+              <div className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-3">+ Add custom subject</div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={customSubject}
+                  onChange={e => setCustomSubject(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addCustomSubject()}
+                  placeholder="e.g. Business, Latin, Art History..."
+                  className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-violet-500"
+                />
+                <button
+                  onClick={addCustomSubject}
+                  className="px-4 py-2 bg-violet-500 rounded-xl text-sm font-semibold hover:bg-violet-600 transition-all"
+                >
+                  Add
+                </button>
+              </div>
             </div>
+
             {selectedSubjects.length > 0 && (
-              <div className="mt-6 p-4 bg-violet-500/10 border border-violet-500/30 rounded-2xl">
-                <div className="text-sm font-medium text-violet-300">{selectedSubjects.length} subjects selected</div>
-                <div className="text-xs text-white/50 mt-1">{selectedSubjects.join(', ')}</div>
+              <div className="mt-4 p-4 bg-violet-500/10 border border-violet-500/30 rounded-2xl">
+                <div className="text-sm font-medium text-violet-300 mb-2">{selectedSubjects.length} subjects selected</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedSubjects.map(s => (
+                    <span key={s} className="flex items-center gap-1 text-xs px-2.5 py-1 bg-violet-500/20 rounded-full text-violet-300">
+                      {s}
+                      <button onClick={() => toggleSubject(s)} className="hover:text-red-400 transition-colors ml-1">✕</button>
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
           </div>
         )}
 
+        {/* STEP 2: Exam Dates */}
         {step === 2 && (
           <div>
             <div className="mb-8">
               <h2 className="text-2xl font-bold mb-2">When are your exams? 📅</h2>
-              <p className="text-white/50">Add the date and how confident you feel for each subject.</p>
+              <p className="text-white/50">No exam? Toggle daily revision mode instead.</p>
             </div>
             <div className="space-y-4">
-              {selectedSubjects.map(subj => (
-                <div key={subj} className="p-4 bg-white/5 border border-white/10 rounded-2xl">
-                  <div className="font-semibold mb-3">{subj}</div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-white/50 mb-1 block">Exam date</label>
-                      <input
-                        type="date"
-                        value={subjectDetails[subj]?.examDate || ''}
-                        onChange={e => updateSubjectDetail(subj, 'examDate', e.target.value)}
-                        className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
-                        style={{ colorScheme: 'dark' }}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-white/50 mb-1 block">Priority</label>
-                      <select
-                        value={subjectDetails[subj]?.priority || 'medium'}
-                        onChange={e => updateSubjectDetail(subj, 'priority', e.target.value as 'high' | 'medium' | 'low')}
-                        className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+              {selectedSubjects.map(subj => {
+                const detail = subjectDetails[subj] || { name: subj, examDate: '', priority: 'medium', isDaily: false }
+                return (
+                  <div key={subj} className="p-4 bg-white/5 border border-white/10 rounded-2xl">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="font-semibold">{subj}</div>
+                      <button
+                        onClick={() => updateDetail(subj, 'isDaily', !detail.isDaily)}
+                        className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all ${
+                          detail.isDaily ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-white/10 text-white/50 hover:bg-white/20'
+                        }`}
                       >
-                        {PRIORITIES.map(p => (
-                          <option key={p.value} value={p.value} style={{ background: '#1a1028' }}>
-                            {p.label} — {p.desc}
-                          </option>
-                        ))}
-                      </select>
+                        {detail.isDaily ? '✓ Daily revision' : '📆 Daily revision (no exam)'}
+                      </button>
                     </div>
+
+                    {!detail.isDaily ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs text-white/50 mb-1 block">Exam date</label>
+                          <input
+                            type="date"
+                            value={detail.examDate}
+                            onChange={e => updateDetail(subj, 'examDate', e.target.value)}
+                            className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                            style={{ colorScheme: 'dark' }}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-white/50 mb-1 block">Priority</label>
+                          <select
+                            value={detail.priority}
+                            onChange={e => updateDetail(subj, 'priority', e.target.value as 'high'|'medium'|'low')}
+                            className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                          >
+                            {PRIORITIES.map(p => (
+                              <option key={p.value} value={p.value} style={{ background: '#1a1028' }}>{p.label} — {p.desc}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="text-xs text-white/50 mb-1 block">Priority</label>
+                        <select
+                          value={detail.priority}
+                          onChange={e => updateDetail(subj, 'priority', e.target.value as 'high'|'medium'|'low')}
+                          className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                        >
+                          {PRIORITIES.map(p => (
+                            <option key={p.value} value={p.value} style={{ background: '#1a1028' }}>{p.label} — {p.desc}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
 
+        {/* STEP 3: Schedule */}
         {step === 3 && (
           <div>
             <div className="mb-8">
-              <h2 className="text-2xl font-bold mb-2">How much can you study? ⏰</h2>
-              <p className="text-white/50">Be realistic — consistent daily sessions beat cramming.</p>
+              <h2 className="text-2xl font-bold mb-2">Build your schedule ⏰</h2>
+              <p className="text-white/50">How much time can you study, and how do you like to work?</p>
             </div>
-            <div className="text-center py-8">
-              <div className="text-7xl font-bold text-violet-400 mb-2">{hoursPerDay}</div>
-              <div className="text-white/50 mb-8">hours per day</div>
-              <input
-                type="range" min={1} max={8} value={hoursPerDay}
-                onChange={e => setHoursPerDay(Number(e.target.value))}
-                className="w-full max-w-xs accent-violet-500"
-              />
-              <div className="flex justify-between max-w-xs mx-auto mt-2 text-xs text-white/30">
-                <span>1h</span><span>4h</span><span>8h</span>
+
+            {/* Time per day */}
+            <div className="mb-8">
+              <div className="text-center mb-6">
+                <div className="text-6xl font-bold text-violet-400 mb-1">{formatTime(minutesPerDay)}</div>
+                <div className="text-white/50 text-sm">per day</div>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {TIME_PRESETS.map(preset => (
+                  <button
+                    key={preset.value}
+                    onClick={() => setMinutesPerDay(preset.value)}
+                    className={`py-2.5 rounded-xl text-sm font-medium transition-all ${
+                      minutesPerDay === preset.value ? 'bg-violet-500 text-white' : 'bg-white/10 text-white/60 hover:bg-white/20'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-3 flex items-center gap-3">
+                <label className="text-xs text-white/40 shrink-0">Custom:</label>
+                <input
+                  type="range" min={15} max={480} step={5} value={minutesPerDay}
+                  onChange={e => setMinutesPerDay(Number(e.target.value))}
+                  className="flex-1 accent-violet-500"
+                />
+                <span className="text-sm text-white/60 w-16 text-right">{formatTime(minutesPerDay)}</span>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3 mt-4">
-              {[
-                { hours: 1, label: '🌱 Light', desc: '~2 sessions/day' },
-                { hours: 3, label: '⚡ Moderate', desc: '~4 sessions/day' },
-                { hours: 5, label: '🔥 Intense', desc: '~7 sessions/day' },
-              ].map(preset => (
-                <button
-                  key={preset.hours}
-                  onClick={() => setHoursPerDay(preset.hours)}
-                  className={`p-3 rounded-2xl border text-center transition-all ${
-                    hoursPerDay === preset.hours ? 'border-violet-500 bg-violet-500/20' : 'border-white/10 bg-white/5 hover:border-white/30'
-                  }`}
-                >
-                  <div className="font-semibold text-sm">{preset.label}</div>
-                  <div className="text-xs text-white/40 mt-0.5">{preset.desc}</div>
-                </button>
-              ))}
+
+            {/* Study mode */}
+            <div>
+              <div className="text-sm font-semibold text-white/60 mb-3">How do you like to study?</div>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {STUDY_MODES.map(mode => (
+                  <button
+                    key={mode.value}
+                    onClick={() => setStudyMode(mode.value)}
+                    className={`p-3 rounded-2xl border text-left transition-all ${
+                      studyMode === mode.value ? 'border-violet-500 bg-violet-500/20' : 'border-white/10 bg-white/5 hover:border-white/30'
+                    }`}
+                  >
+                    <div className="font-semibold text-sm">{mode.label}</div>
+                    <div className="text-xs text-white/40 mt-0.5">{mode.desc}</div>
+                  </button>
+                ))}
+              </div>
+              {studyMode === 'custom' && (
+                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-white/50 mb-1 block">Work session (min)</label>
+                    <input type="number" min={5} max={120} value={customWork}
+                      onChange={e => setCustomWork(Number(e.target.value))}
+                      className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-white/50 mb-1 block">Break (min)</label>
+                    <input type="number" min={1} max={60} value={customBreak}
+                      onChange={e => setCustomBreak(Number(e.target.value))}
+                      className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
+        {/* STEP 4: Done */}
         {step === 4 && (
           <div className="text-center py-10">
             <div className="text-7xl mb-6">🌸</div>
             <h2 className="text-2xl font-bold mb-3">Bloomie is on it!</h2>
             <p className="text-white/50 mb-2">Your personalised study plan is ready.</p>
-            <p className="text-white/30 text-sm mb-8">{selectedSubjects.length} subjects · {hoursPerDay}h/day</p>
+            <p className="text-white/30 text-sm mb-8">
+              {selectedSubjects.length} subjects · {formatTime(minutesPerDay)}/day ·{' '}
+              {studyMode === 'pomodoro_25' ? 'Pomodoro 25/5' : studyMode === 'pomodoro_50' ? 'Pomodoro 50/10' : studyMode === 'custom' ? `${customWork}/${customBreak} min` : 'Standard'}
+            </p>
             <div className="grid grid-cols-2 gap-3 max-w-xs mx-auto mb-8">
               {selectedSubjects.slice(0, 4).map(s => (
                 <div key={s} className="p-3 bg-white/5 border border-white/10 rounded-xl text-sm text-center">{s}</div>
               ))}
               {selectedSubjects.length > 4 && (
-                <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-sm text-center text-white/40">
-                  +{selectedSubjects.length - 4} more
-                </div>
+                <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-sm text-center text-white/40">+{selectedSubjects.length - 4} more</div>
               )}
             </div>
-            <button
-              onClick={savePlan}
-              disabled={saving}
+            <button onClick={savePlan} disabled={saving}
               className="px-8 py-3 bg-gradient-to-r from-violet-500 to-pink-500 rounded-2xl font-semibold text-white hover:opacity-90 transition-all disabled:opacity-50"
             >
               {saving ? 'Generating...' : '🚀 Open My Plan'}
@@ -252,18 +412,13 @@ export default function SetupClient() {
           </div>
         )}
 
+        {/* Nav buttons */}
         {step < 4 && (
           <div className="flex items-center justify-between mt-10">
-            <button
-              onClick={() => setStep(s => Math.max(0, s - 1))}
-              disabled={step === 0}
+            <button onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0}
               className="px-5 py-2.5 rounded-xl bg-white/10 text-white/70 hover:bg-white/20 disabled:opacity-30 transition-all"
-            >
-              ← Back
-            </button>
-            <button
-              onClick={() => setStep(s => s === 3 ? 4 : s + 1)}
-              disabled={!canProceed()}
+            >← Back</button>
+            <button onClick={() => setStep(s => s === 3 ? 4 : s + 1)} disabled={!canProceed()}
               className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-pink-500 font-semibold text-white hover:opacity-90 disabled:opacity-30 transition-all"
             >
               {step === 3 ? '✨ Generate Plan' : 'Continue →'}

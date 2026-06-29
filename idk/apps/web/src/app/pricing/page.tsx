@@ -110,8 +110,14 @@ export default function PricingPage() {
           <span className="font-bold text-lg">PersonalBloom</span>
         </Link>
         <div className="flex items-center gap-3">
-          <Link href="/auth/login" className="text-sm text-white/50 hover:text-white transition-colors">Log in</Link>
-          <Link href="/auth/signup" className="text-sm px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all">Sign up free</Link>
+          {isLoggedIn ? (
+            <Link href="/dashboard" className="text-sm px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all">← Dashboard</Link>
+          ) : (
+            <>
+              <Link href="/auth/login" className="text-sm text-white/50 hover:text-white transition-colors">Already have an account</Link>
+              <Link href="/auth/signup" className="text-sm px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all">Sign up free</Link>
+            </>
+          )}
         </div>
       </nav>
 

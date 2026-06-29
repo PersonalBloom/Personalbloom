@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { PROGRAMS, getProgramById } from '@/lib/subjects'
 import { PlanSubject, assignColors } from '@/lib/planner'
 
-const STEPS = ['Program', 'Subjects', 'Exam Dates', 'Schedule', 'Done']
+const STEPS = ['Program', 'Subjects', 'Exam Dates', 'Schedule', 'Notes', 'Done']
 
 const PRIORITIES = [
   { value: 'high', label: '🔥 High', desc: 'Struggling with this' },
@@ -50,6 +50,9 @@ export default function SetupClient() {
   const [customWork, setCustomWork] = useState(20)
   const [customBreak, setCustomBreak] = useState(5)
   const [saving, setSaving] = useState(false)
+  const [importedNotes, setImportedNotes] = useState('')
+  const [noteUploading, setNoteUploading] = useState(false)
+  const noteFileRef = useRef<HTMLInputElement>(null)
 
   const program = getProgramById(programId)
 
@@ -84,6 +87,7 @@ export default function SetupClient() {
       return d?.isDaily || !!d?.examDate
     })
     if (step === 3) return minutesPerDay >= 15
+    if (step === 4) return true // notes are optional
     return true
   }
 
@@ -105,6 +109,11 @@ export default function SetupClient() {
         isDaily: detail?.isDaily || false,
       }
     })
+    if (importedNotes.trim()) {
+      const existingNotes = JSON.parse(localStorage.getItem('bloomNotes') || '[]')
+      const newNote = { id: Date.now().toString(), subject: 'General', title: 'Imported Notes', content: importedNotes.trim(), createdAt: new Date().toISOString() }
+      localStorage.setItem('bloomNotes', JSON.stringify([newNote, ...existingNotes]))
+    }
     localStorage.setItem('bloomPlan', JSON.stringify({
       programId,
       subjects,
@@ -117,6 +126,46 @@ export default function SetupClient() {
     }))
     setSaving(false)
     router.push('/planner')
+  }
+
+  async function handleNoteFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setNoteUploading(true)
+    try {
+      if (file.type === 'application/pdf') {
+        if (!(window as any).pdfjsLib) {
+          await new Promise<void>((resolve, reject) => {
+            const script = document.createElement('script')
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+            script.onload = () => resolve()
+            script.onerror = reject
+            document.head.appendChild(script)
+          })
+          ;(window as any).pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+        }
+        const arrayBuffer = await file.arrayBuffer()
+        const pdf = await (window as any).pdfjsLib.getDocument({ data: arrayBuffer }).promise
+        let text = ''
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i)
+          const tc = await page.getTextContent()
+          text += tc.items.map((item: any) => item.str).join(' ') + '\n'
+        }
+        setImportedNotes(prev => prev ? prev + '\n\n' + text.trim() : text.trim())
+      } else if (file.type.startsWith('image/')) {
+        const reader = new FileReader()
+        reader.onload = ev => {
+          setImportedNotes(prev => prev + (prev ? '\n\n' : '') + '[Image attached: ' + file.name + ']')
+        }
+        reader.readAsDataURL(file)
+      } else {
+        const text = await file.text()
+        setImportedNotes(prev => prev ? prev + '\n\n' + text : text)
+      }
+    } catch { alert('Could not read file. Try pasting text instead.') }
+    finally { setNoteUploading(false) }
   }
 
   const formatTime = (mins: number) => {
@@ -386,8 +435,47 @@ export default function SetupClient() {
           </div>
         )}
 
-        {/* STEP 4: Done */}
+        {/* STEP 4: Import Notes (optional) */}
         {step === 4 && (
+          <div>
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold mb-2">Import your notes 📄</h2>
+              <p className="text-white/50">Optional — paste or upload notes to help Bloomie personalise your plan.</p>
+            </div>
+            <div className="space-y-4">
+              <div
+                onClick={() => noteFileRef.current?.click()}
+                className="border-2 border-dashed border-white/20 rounded-2xl p-6 text-center cursor-pointer hover:border-violet-500/50 hover:bg-violet-500/5 transition-all"
+              >
+                {noteUploading ? (
+                  <p className="text-white/50 text-sm">⏳ Reading file...</p>
+                ) : (
+                  <div>
+                    <div className="text-4xl mb-2">📎</div>
+                    <p className="text-sm text-white/60">Click to upload a <span className="text-violet-400 font-semibold">PDF</span> or <span className="text-pink-400 font-semibold">text file</span></p>
+                    <p className="text-xs text-white/20 mt-1">Text will be extracted automatically</p>
+                  </div>
+                )}
+              </div>
+              <input ref={noteFileRef} type="file" accept=".pdf,.txt,.md,image/*" onChange={handleNoteFile} className="hidden" />
+              <div>
+                <label className="text-xs text-white/50 mb-1 block">Or paste your notes here</label>
+                <textarea
+                  value={importedNotes}
+                  onChange={e => setImportedNotes(e.target.value)}
+                  rows={8}
+                  placeholder={"Paste any notes, summaries, or topics you want Bloomie to know about...\n\nYou can also use 'Term: Definition' format for automatic flashcard generation."}
+                  className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-violet-500 resize-none font-mono leading-relaxed"
+                />
+                {importedNotes && <p className="text-xs text-violet-400 mt-1">✨ {importedNotes.split('\n').filter(Boolean).length} lines imported</p>}
+              </div>
+              <p className="text-xs text-white/20 text-center">This step is optional — you can always add notes later in the Notes section.</p>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 5: Done */}
+        {step === 5 && (
           <div className="text-center py-10">
             <div className="text-7xl mb-6">🌸</div>
             <h2 className="text-2xl font-bold mb-3">Bloomie is on it!</h2>
@@ -413,15 +501,15 @@ export default function SetupClient() {
         )}
 
         {/* Nav buttons */}
-        {step < 4 && (
+        {step < 5 && (
           <div className="flex items-center justify-between mt-10">
             <button onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0}
               className="px-5 py-2.5 rounded-xl bg-white/10 text-white/70 hover:bg-white/20 disabled:opacity-30 transition-all"
             >← Back</button>
-            <button onClick={() => setStep(s => s === 3 ? 4 : s + 1)} disabled={!canProceed()}
+            <button onClick={() => setStep(s => s === 4 ? 5 : s + 1)} disabled={!canProceed()}
               className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-pink-500 font-semibold text-white hover:opacity-90 disabled:opacity-30 transition-all"
             >
-              {step === 3 ? '✨ Generate Plan' : 'Continue →'}
+              {step === 4 ? '✨ Generate Plan' : 'Continue →'}
             </button>
           </div>
         )}

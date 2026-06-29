@@ -9,11 +9,15 @@ import { cn } from '@/lib/utils'
 import type { User } from '@supabase/supabase-js'
 
 const NAV = [
-  { href: '/dashboard',           icon: '🏠', label: 'Home' },
-  { href: '/planner',              icon: '📅', label: 'Planner' },
-  { href: '/dashboard/quiz',      icon: '🧠', label: 'Quiz' },
-  { href: '/dashboard/pomodoro',  icon: '🎧', label: 'Focus' },
-  { href: '/dashboard/progress',  icon: '📊', label: 'Progress' },
+  { href: '/dashboard',              icon: '🏠', label: 'Home' },
+  { href: '/planner',                icon: '📅', label: 'Planner' },
+  { href: '/dashboard/notes',        icon: '📝', label: 'Notes' },
+  { href: '/dashboard/flashcards',   icon: '🃏', label: 'Flashcards' },
+  { href: '/dashboard/quiz',         icon: '🧠', label: 'Quiz' },
+  { href: '/dashboard/bloomie',      icon: '💜', label: 'Bloomie' },
+  { href: '/dashboard/pomodoro',     icon: '🎧', label: 'Focus' },
+  { href: '/dashboard/progress',     icon: '📊', label: 'Progress' },
+  { href: '/pricing',                icon: '✨', label: 'Soul+' },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -44,13 +48,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <span className="font-bold text-lg glow-text">PersonalBloom</span>
         </Link>
 
-        <nav className="flex flex-col gap-1 flex-1">
+        <nav className="flex flex-col gap-1 flex-1 overflow-y-auto">
           {NAV.map(item => (
             <Link key={item.href} href={item.href}
               className={cn(
                 'flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all',
                 pathname === item.href
                   ? 'bg-violet-500/20 text-white border border-violet-400/30'
+                  : item.href === '/pricing'
+                  ? 'text-amber-400/70 hover:text-amber-400 hover:bg-amber-500/10'
                   : 'text-white/50 hover:text-white hover:bg-white/8',
               )}
             >
@@ -92,12 +98,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </motion.div>
       </main>
 
-      {/* Mobile bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 md:hidden border-t border-white/10 bg-bloom-dark/95 backdrop-blur-xl flex">
-        {NAV.map(item => (
+      {/* Mobile bottom nav — show most important only */}
+      <nav className="fixed bottom-0 left-0 right-0 md:hidden border-t border-white/10 bg-bloom-dark/95 backdrop-blur-xl flex overflow-x-auto">
+        {NAV.slice(0, 6).map(item => (
           <Link key={item.href} href={item.href}
             className={cn(
-              'flex-1 flex flex-col items-center py-3 text-xs gap-1 transition-colors',
+              'flex-1 flex flex-col items-center py-3 text-xs gap-1 transition-colors min-w-[60px]',
               pathname === item.href ? 'text-violet-400' : 'text-white/40',
             )}
           >

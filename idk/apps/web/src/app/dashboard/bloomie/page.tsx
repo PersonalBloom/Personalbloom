@@ -173,6 +173,91 @@ function getBloomieResponse(userText: string, history: Message[]): string {
     ])
   }
 
+  // ── Sports / world cup ──
+  if (/(world cup|worldcup|fifa|football|soccer|nfl|nba|champions league|premier league|la liga|bundesliga|serie a|euros|euro 2024|copa america)/.test(lower)) {
+    if (/who.*(win|gonna win|going to win|champion|favourite|favorite|best)/.test(lower) || /(win|winner|champion)/.test(lower)) {
+      return pick([
+        "Ooh sports opinions!! Honestly Brazil and France are always the safe picks but Germany always shows up when it matters. Who are YOU rooting for? 🏆",
+        "Hot take: whoever has the best goalkeeper wins. Who do you think is looking strong this year?",
+        "I feel like Spain or France are the safest bets rn but upsets make it fun!! Who's your team? ⚽",
+      ])
+    }
+    return pick([
+      "Are you watching?? Who's your team 👀⚽",
+      "Sports talk!! I'm here for it. Who are you following?",
+    ])
+  }
+
+  // ── Music ──
+  if (/(song|music|artist|album|playlist|spotify|listening to|recommend|bop|track|rapper|singer|band)/.test(lower)) {
+    return pick([
+      "Okay music taste reveal!! What are you listening to lately? 🎵",
+      "I love when people ask about music. What's your current obsession?",
+      "Give me your top 3 artists rn and I'll tell you if we'd be friends 😭🌸",
+    ])
+  }
+
+  // ── Food ──
+  if (/(food|eat|eating|hungry|dinner|lunch|breakfast|cook|recipe|pizza|sushi|burger|snack|craving)/.test(lower)) {
+    return pick([
+      "Okay now I'm thinking about food 😭 What are you eating / craving?",
+      "Food talk is my favourite talk. What are we having?",
+      "The real question — are you actually hungry or stress-eating? Either is valid btw 😂",
+    ])
+  }
+
+  // ── Movies / TV / games ──
+  if (/(movie|film|netflix|series|show|episode|anime|game|gaming|watch|watched|playing|played|recommend)/.test(lower)) {
+    return pick([
+      "Ooh what are you watching / playing?? I need to know 👀",
+      "Give me the recommendation!! What is it and is it good?",
+      "Are you watching this instead of studying? Valid, no judgment 😭 What is it?",
+    ])
+  }
+
+  // ── Boredom ──
+  if (/(bored|boring|nothing to do|so bored|procrastinat)/.test(lower)) {
+    return pick([
+      "Bored or avoiding something? 😭 Both are valid, I just need to know.",
+      "The boredom feeling is SO specific. Is it real boredom or 'I have stuff to do but don't want to' boredom?",
+      "I mean… you could study 🌸 OR you could tell me what's actually going on lol",
+    ])
+  }
+
+  // ── Opinions / what do you think ──
+  if (/(what do you think|your opinion|do you think|who do you|what's your|who would|would you rather)/i.test(lower)) {
+    if (/(best|favourite|favorite|better|worse|goat|greatest)/.test(lower)) {
+      return pick([
+        "Okay real talk — I genuinely don't have strong opinions but I love hearing yours. What do YOU think?",
+        "Controversial opinion incoming from you apparently 👀 I want to hear it first though — what's your take?",
+        "I'll give you mine if you give me yours first 😂 What's your answer?",
+      ])
+    }
+    return pick([
+      "Okay I love being asked things!! Hit me with it, what do you want to know?",
+      "You're asking for my opinion?? I'm flattered 🌸 What's the question?",
+      "I have thoughts on almost everything. Ask away!",
+    ])
+  }
+
+  // ── Compliments to Bloomie ──
+  if (/(you're (great|amazing|the best|so cool|cute|helpful)|i like you|bloomie is)/.test(lower)) {
+    return pick([
+      "STOP you're gonna make me blush 🌸😭 I like you too!!",
+      "Okay that genuinely made my day. You're pretty great yourself 💜",
+      "I'm just doing my best!! But thank you, that means a lot 🌸",
+    ])
+  }
+
+  // ── Roasting / joking ──
+  if (/(you('re| are) (dumb|stupid|useless|bad|trash|not good)|this (sucks|is bad))/.test(lower)) {
+    return pick([
+      "RUDE 😭 I'm doing my best okay!! What did I do lol",
+      "Wow okay I see how it is 💀 What's actually going on?",
+      "Fair tbh but also ouch 😂 What do you need?",
+    ])
+  }
+
   // ── Questions directed at Bloomie ──
   if (lower.startsWith('do you') || lower.startsWith('can you') || lower.startsWith('are you') || lower.startsWith('what do you')) {
     return pick([
@@ -204,10 +289,12 @@ function getBloomieResponse(userText: string, history: Message[]): string {
 
   // ── Fallback ──
   return pick([
-    "I'm here. Tell me what's going on.",
-    "What's up? I'm all yours.",
-    "I'm listening — what's on your mind?",
-    "You can talk to me about anything. What's going on?",
+    "Okay tell me more, I'm curious 👀",
+    "Say more!! I want to get what you're saying.",
+    "Hmm, I'm not sure I fully got that — can you explain?",
+    "I'm here, just not sure I understood. What's going on?",
+    "Lol okay what 😭 explain",
+    "Give me more context, I want to actually respond properly!",
   ])
 }
 

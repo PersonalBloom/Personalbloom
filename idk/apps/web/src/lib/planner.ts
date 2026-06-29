@@ -1,9 +1,7 @@
-// Study plan generation algorithm
-
 export type PlanSubject = {
   id: string
   name: string
-  examDate: string // ISO date string YYYY-MM-DD
+  examDate: string
   color: string
   priority: 'high' | 'medium' | 'low'
 }
@@ -13,36 +11,25 @@ export type StudyTask = {
   subjectId: string
   subjectName: string
   subjectColor: string
-  date: string // ISO date string YYYY-MM-DD
+  date: string
   durationMinutes: number
   sessionLabel: string
   done: boolean
 }
 
 const SUBJECT_COLORS = [
-  '#A78BFA', // violet
-  '#F472B6', // pink
-  '#34D399', // emerald
-  '#60A5FA', // blue
-  '#FBBF24', // amber
-  '#F87171', // red
-  '#A3E635', // lime
-  '#38BDF8', // sky
-  '#C084FC', // purple
-  '#FB923C', // orange
+  '#A78BFA', '#F472B6', '#34D399', '#60A5FA', '#FBBF24',
+  '#F87171', '#A3E635', '#38BDF8', '#C084FC', '#FB923C',
 ]
 
 export function assignColors(subjects: { id: string }[]): Record<string, string> {
   const map: Record<string, string> = {}
-  subjects.forEach((s, i) => {
-    map[s.id] = SUBJECT_COLORS[i % SUBJECT_COLORS.length]
-  })
+  subjects.forEach((s, i) => { map[s.id] = SUBJECT_COLORS[i % SUBJECT_COLORS.length] })
   return map
 }
 
 function daysBetween(from: Date, to: Date): number {
-  const diff = to.getTime() - from.getTime()
-  return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)))
+  return Math.max(0, Math.floor((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)))
 }
 
 function addDays(date: Date, days: number): Date {
@@ -56,33 +43,16 @@ function toDateStr(date: Date): string {
 }
 
 const SESSION_LABELS = [
-  'Review concepts',
-  'Practice problems',
-  'Past paper questions',
-  'Summarise notes',
-  'Flashcard review',
-  'Deep dive',
-  'Quick revision',
-  'Active recall',
-  'Mind map',
-  'Timed practice',
+  'Review concepts', 'Practice problems', 'Past paper questions', 'Summarise notes',
+  'Flashcard review', 'Deep dive', 'Quick revision', 'Active recall', 'Mind map', 'Timed practice',
 ]
 
-export function generateStudyPlan(
-  subjects: PlanSubject[],
-  hoursPerDay: number,
-  startDate: Date = new Date()
-): StudyTask[] {
+export function generateStudyPlan(subjects: PlanSubject[], hoursPerDay: number, startDate: Date = new Date()): StudyTask[] {
   if (subjects.length === 0) return []
-
   const tasks: StudyTask[] = []
   const minutesPerDay = hoursPerDay * 60
   const sessionLength = 45
-
-  const sorted = [...subjects].sort(
-    (a, b) => new Date(a.examDate).getTime() - new Date(b.examDate).getTime()
-  )
-
+  const sorted = [...subjects].sort((a, b) => new Date(a.examDate).getTime() - new Date(b.examDate).getTime())
   const lastExam = new Date(sorted[sorted.length - 1].examDate)
   const totalDays = daysBetween(startDate, lastExam)
   if (totalDays === 0) return []
@@ -90,12 +60,7 @@ export function generateStudyPlan(
   for (let dayOffset = 0; dayOffset < totalDays; dayOffset++) {
     const currentDate = addDays(startDate, dayOffset)
     const dateStr = toDateStr(currentDate)
-
-    const activeSubjects = sorted.filter(s => {
-      const examDate = new Date(s.examDate)
-      return currentDate <= examDate
-    })
-
+    const activeSubjects = sorted.filter(s => currentDate <= new Date(s.examDate))
     if (activeSubjects.length === 0) continue
 
     const scores = activeSubjects.map(s => {
@@ -105,24 +70,14 @@ export function generateStudyPlan(
       if (s.priority === 'low') base *= 0.5
       return { subject: s, score: base }
     })
-
     const totalScore = scores.reduce((sum, s) => sum + s.score, 0)
 
-    const dayAllocations: { subject: PlanSubject; minutes: number }[] = []
-    scores.forEach(({ subject, score }) => {
-      const proportion = score / totalScore
-      const minutes = Math.round(proportion * minutesPerDay)
-      dayAllocations.push({ subject, minutes })
-    })
-
-    dayAllocations.forEach(({ subject, minutes }) => {
+    scores.forEach(({ subject, score }, idx) => {
+      const minutes = Math.round((score / totalScore) * minutesPerDay)
       if (minutes < 20) return
-
       const numSessions = Math.max(1, Math.round(minutes / sessionLength))
       const sessionDuration = Math.round(minutes / numSessions)
-
       for (let s = 0; s < numSessions; s++) {
-        const labelIndex = (dayOffset + s) % SESSION_LABELS.length
         tasks.push({
           id: `${subject.id}-${dateStr}-${s}`,
           subjectId: subject.id,
@@ -130,13 +85,12 @@ export function generateStudyPlan(
           subjectColor: subject.color,
           date: dateStr,
           durationMinutes: sessionDuration,
-          sessionLabel: SESSION_LABELS[labelIndex],
+          sessionLabel: SESSION_LABELS[(dayOffset + s) % SESSION_LABELS.length],
           done: false,
         })
       }
     })
   }
-
   return tasks
 }
 

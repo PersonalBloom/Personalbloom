@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase'
 import { BloomieAvatar } from '@/components/ui/Bloomie'
@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/Input'
 
 export default function SignupPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect') || '/dashboard'
   const supabase = createClient()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -28,7 +30,7 @@ export default function SignupPage() {
       password,
       options: {
         data: { name },
-        emailRedirectTo: `${location.origin}/auth/callback`,
+        emailRedirectTo: `${location.origin}/auth/callback?redirect=${encodeURIComponent(redirectTo)}`,
       },
     })
     if (error) { setError(error.message); setLoading(false); return }
@@ -38,7 +40,7 @@ export default function SignupPage() {
   async function handleGoogle() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${location.origin}/auth/callback` },
+      options: { redirectTo: `${location.origin}/auth/callback?redirect=${encodeURIComponent(redirectTo)}` },
     })
   }
 
@@ -72,7 +74,7 @@ export default function SignupPage() {
         <div className="text-center mb-8">
           <BloomieAvatar size="md" className="mx-auto mb-4" />
           <h1 className="text-2xl font-black mb-1">Create your account</h1>
-          <p className="text-white/50 text-sm">7-day Soul+ trial included ✨</p>
+          <p className="text-white/50 text-sm">3-day Soul+ trial included ✨</p>
         </div>
 
         <button onClick={handleGoogle}

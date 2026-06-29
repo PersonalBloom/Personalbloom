@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
+import { createClient } from '@/lib/supabase'
 
 const FREE_FEATURES = [
   { icon: '📅', label: 'Smart Study Planner', included: true },
@@ -30,10 +32,29 @@ const PRAISES = [
 ]
 
 export default function PricingPage() {
+  const router = useRouter()
+  const supabase = createClient()
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('yearly')
   const [loading, setLoading] = useState(false)
   const [promoOpen, setPromoOpen] = useState(false)
   const [promoCode, setPromoCode] = useState('')
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const loggedIn = !!data.user
+      setIsLoggedIn(loggedIn)
+      // Auto-trigger checkout if redirected back from signup with pending checkout
+      const pending = localStorage.getItem('bloomPendingCheckout')
+      if (loggedIn && pending) {
+        localStorage.removeItem('bloomPendingCheckout')
+        const pendingBilling = localStorage.getItem('bloomPendingBilling') || 'monthly'
+        localStorage.removeItem('bloomPendingBilling')
+        setBilling(pendingBilling as 'monthly' | 'yearly')
+        setTimeout(() => triggerCheckout(pendingBilling as 'monthly' | 'yearly'), 300)
+      }
+    })
+  }, [])
 
   const monthlyPrice = 9.99
   const yearlyPrice = 115
@@ -41,13 +62,13 @@ export default function PricingPage() {
   const yearlySaving = ((monthlyPrice * 12) - yearlyPrice).toFixed(2)
   const yearlyDiscount = Math.round(((monthlyPrice * 12 - yearlyPrice) / (monthlyPrice * 12)) * 100)
 
-  async function startCheckout() {
+  async function triggerCheckout(bill: 'monthly' | 'yearly' = billing) {
     setLoading(true)
     try {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ billing, promoCode: promoCode.trim() || undefined }),
+        body: JSON.stringify({ billing: bill, promoCode: promoCode.trim() || undefined }),
       })
       const data = await res.json()
       if (data.url) {
@@ -60,6 +81,17 @@ export default function PricingPage() {
       alert('Something went wrong. Please try again.')
       setLoading(false)
     }
+  }
+
+  function startCheckout() {
+    if (!isLoggedIn) {
+      // Save intent and send to signup
+      localStorage.setItem('bloomPendingCheckout', '1')
+      localStorage.setItem('bloomPendingBilling', billing)
+      router.push('/auth/signup?redirect=/pricing')
+      return
+    }
+    triggerCheckout()
   }
 
   return (
@@ -228,7 +260,7 @@ export default function PricingPage() {
                 disabled={loading}
                 className="w-full py-4 rounded-2xl bg-gradient-to-r from-violet-500 via-purple-500 to-amber-500 text-white font-bold text-lg hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60 shadow-lg shadow-violet-500/30"
               >
-                {loading ? '⏳ Redirecting...' : billing === 'yearly' ? '✨ Start my free yearly trial' : '✨ Start my 3-day free trial'}
+                {loading ? '⏳ Redirecting...' : !isLoggedIn ? '🌸 Sign up & start free trial' : billing === 'yearly' ? '✨ Start my free yearly trial' : '✨ Start my 3-day free trial'}
               </button>
               <p className="mt-3 text-center text-xs text-white/25">
                 No charge for 3 days · Cancel anytime · Secured by Stripe

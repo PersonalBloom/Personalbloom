@@ -11,12 +11,12 @@ const MODES: Record<Mode, { label: string; mins: number; color: string }> = {
 }
 
 const ROOMS = [
-  { id: 'rain',    icon: '🌧️', label: 'Rain',         premium: false },
-  { id: 'lofi',    icon: '🎵', label: 'Lo-fi beats',  premium: true  },
-  { id: 'forest',  icon: '🌲', label: 'Forest',       premium: true  },
-  { id: 'cafe',    icon: '☕', label: 'Café',          premium: true  },
-  { id: 'space',   icon: '🚀', label: 'Deep Space',   premium: true  },
-  { id: 'binaural',icon: '🧠', label: 'Binaural',     premium: true  },
+  { id: 'rain',    icon: '🌧️', label: 'Rain',        src: null                   },
+  { id: 'lofi',    icon: '🎵', label: 'Lo-fi beats', src: '/sounds/lofi.mp3'     },
+  { id: 'forest',  icon: '🌲', label: 'Forest',      src: '/sounds/forest.mp3'   },
+  { id: 'cafe',    icon: '☕', label: 'Café',         src: '/sounds/cafe.mp3'     },
+  { id: 'space',   icon: '🚀', label: 'Deep Space',  src: '/sounds/space.mp3'    },
+  { id: 'binaural',icon: '🧠', label: 'Binaural',    src: '/sounds/binaural.mp3' },
 ]
 
 export default function PomodoroPage() {
@@ -27,7 +27,8 @@ export default function PomodoroPage() {
   const [sessions, setSessions] = useState(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)
-  const sourceRef   = useRef<AudioNode | null>(null)
+  const rainSourceRef = useRef<AudioNode | null>(null)
+  const audioElemRef = useRef<HTMLAudioElement | null>(null)
 
   const totalSecs = MODES[mode].mins * 60
   const pct = ((totalSecs - secsLeft) / totalSecs) * 100
@@ -35,10 +36,15 @@ export default function PomodoroPage() {
   const secs = String(secsLeft % 60).padStart(2, '0')
 
   const stopAudio = useCallback(() => {
-    try { (sourceRef.current as OscillatorNode | null)?.stop?.() } catch {}
+    try { (rainSourceRef.current as OscillatorNode | null)?.stop?.() } catch {}
     audioCtxRef.current?.close()
     audioCtxRef.current = null
-    sourceRef.current  = null
+    rainSourceRef.current = null
+    if (audioElemRef.current) {
+      audioElemRef.current.pause()
+      audioElemRef.current.currentTime = 0
+      audioElemRef.current = null
+    }
   }, [])
 
   const startRain = useCallback(() => {
@@ -55,14 +61,24 @@ export default function PomodoroPage() {
     const gain = ctx.createGain(); gain.gain.value = 0.08
     src.connect(filter); filter.connect(gain); gain.connect(ctx.destination)
     src.start()
-    sourceRef.current = src
+    rainSourceRef.current = src
   }, [])
 
   function playRoom(id: string) {
     stopAudio()
     if (room === id) { setRoom(null); return }
     setRoom(id)
-    if (id === 'rain') startRain()
+    const r = ROOMS.find(x => x.id === id)
+    if (!r) return
+    if (id === 'rain') {
+      startRain()
+    } else if (r.src) {
+      const audio = new Audio(r.src)
+      audio.loop = true
+      audio.volume = 0.6
+      audio.play().catch(() => {})
+      audioElemRef.current = audio
+    }
   }
 
   useEffect(() => {
@@ -156,17 +172,15 @@ export default function PomodoroPage() {
         <h3 className="font-bold mb-4">🎵 Ambient Sounds</h3>
         <div className="grid grid-cols-3 gap-3">
           {ROOMS.map(r => (
-            <button key={r.id} onClick={() => !r.premium && playRoom(r.id)}
-              className={`card text-center py-5 relative transition-all ${
-                room === r.id ? 'border-violet-400 bg-violet-500/20' :
-                r.premium ? 'opacity-50 cursor-not-allowed' : 'hover:border-violet-400/30 cursor-pointer'
+            <button key={r.id} onClick={() => playRoom(r.id)}
+              className={`card text-center py-5 relative transition-all cursor-pointer ${
+                room === r.id
+                  ? 'border-violet-400 bg-violet-500/20'
+                  : 'hover:border-violet-400/30'
               }`}
             >
               <span className="text-3xl block mb-2">{r.icon}</span>
               <span className="text-xs font-semibold">{r.label}</span>
-              {r.premium && (
-                <span className="absolute top-2 right-2 text-[10px] bg-amber-500/30 border border-amber-400/40 text-amber-300 px-1.5 py-0.5 rounded-full">Soul+</span>
-              )}
               {room === r.id && <span className="block text-xs text-violet-400 mt-1">Playing ♪</span>}
             </button>
           ))}

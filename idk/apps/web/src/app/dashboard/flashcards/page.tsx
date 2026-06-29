@@ -5,16 +5,76 @@ import { useState, useEffect } from 'react'
 type Card = { front: string; back: string; subject: string; noteTitle: string }
 type Note = { id: string; subject: string; title: string; content: string }
 
+// Words that are never useful as flashcard fronts
+const JUNK_TERMS = new Set([
+  'optional','mandatory','note','example','see','tip','important','remember',
+  'hint','also','source','sources','references','summary','overview','intro',
+  'introduction','conclusion','definition','description','explanation',
+  'instructions','task','tasks','objective','objectives','goal','goals',
+])
+
+function isJunkTerm(term: string): boolean {
+  const lower = term.toLowerCase().replace(/[^a-z]/g,'')
+  return JUNK_TERMS.has(lower) || term.length < 3 || term.length > 70
+}
+
+function isJunkBack(back: string): boolean {
+  // Too long (it's a paragraph, not a definition)
+  return back.length > 200 || back.split(' ').length > 30
+}
+
 function parseCards(note: Note): Card[] {
   const cards: Card[] = []
   const lines = note.content.split('\n').map(l => l.trim()).filter(Boolean)
+
   for (const line of lines) {
-    const m = line.match(/^(.+?)\s*[:–-]\s*(.+)$/)
-    if (m && m[1].length < 80 && m[2].length > 2) {
-      cards.push({ front: m[1].trim(), back: m[2].trim(), subject: note.subject, noteTitle: note.title })
+    // Pattern 1: "Term: Definition" or "Term — Definition"
+    const colonMatch = line.match(/^(.+?)\s*[:–—]\s*(.+)$/)
+    if (colonMatch) {
+      const front = colonMatch[1].replace(/^[-•*#\d.]+\s*/,'').trim()
+      const back = colonMatch[2].trim()
+      if (!isJunkTerm(front) && !isJunkBack(back) && back.length > 4) {
+        cards.push({ front, back, subject: note.subject, noteTitle: note.title })
+        continue
+      }
+    }
+
+    // Pattern 2: "X is Y" / "X are Y" → "What is X?" / Y
+    const isMatch = line.match(/^(.{4,50})\s+(?:is|are|refers to|means|=)\s+(.{5,120})$/i)
+    if (isMatch) {
+      const term = isMatch[1].trim()
+      const def = isMatch[2].trim().replace(/\.$/, '')
+      if (!isJunkTerm(term)) {
+        const verb = line.match(/\bare\b/i) ? 'are' : 'is'
+        cards.push({
+          front: \`What \${verb} \${term}?\`,
+          back: def,
+          subject: note.subject,
+          noteTitle: note.title,
+        })
+        continue
+      }
+    }
+
+    // Pattern 3: Bullet with short term + explanation in brackets
+    const bulletMatch = line.match(/^[-•*]\s+(.{3,50})\s+[\(\[](.{5,100})[\)\]]/)
+    if (bulletMatch) {
+      cards.push({
+        front: bulletMatch[1].trim(),
+        back: bulletMatch[2].trim(),
+        subject: note.subject,
+        noteTitle: note.title,
+      })
     }
   }
-  return cards
+
+  // Deduplicate by front
+  const seen = new Set<string>()
+  return cards.filter(c => {
+    if (seen.has(c.front.toLowerCase())) return false
+    seen.add(c.front.toLowerCase())
+    return true
+  })
 }
 
 function shuffle<T>(arr: T[]): T[] {

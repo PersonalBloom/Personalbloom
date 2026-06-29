@@ -47,6 +47,30 @@ function toDateStr(date: Date): string {
 }
 
 // ─── Topic extraction from raw notes ───────────────────────────────────────
+const TOPIC_JUNK = new Set([
+  'optional','mandatory','note','notes','example','examples','see','tip','tips',
+  'important','remember','hint','also','source','sources','references','summary',
+  'overview','intro','introduction','conclusion','definition','description',
+  'explanation','instructions','instruction','task','tasks','objective','objectives',
+  'goal','goals','activity','activities','homework','assignment','due','deadline',
+  'week','chapter','section','page','pages','unit','topic','topics','subject',
+  'visit','listen','read','write','review','practice','study','complete','check',
+  'you','your','this','that','these','those','the','and','or','but','with',
+])
+
+function isUsefulTopic(term: string): boolean {
+  const lower = term.toLowerCase().replace(/[^a-z]/g, '')
+  if (TOPIC_JUNK.has(lower)) return false
+  if (term.length < 4 || term.length > 60) return false
+  // Skip if it's mostly numbers or symbols
+  if (/^[\d\s\W]+$/.test(term)) return false
+  // Skip URLs
+  if (term.includes('http') || term.includes('www')) return false
+  // Skip if it starts with common instruction words
+  if (/^(visit|listen|read|write|review|practice|study|draw|make|create|use|check|ensure|complete|learn|understand)/i.test(term)) return false
+  return true
+}
+
 export function extractTopicsFromNotes(notes: string, subjectName: string): string[] {
   if (!notes || !notes.trim()) return []
   const topics: string[] = []
@@ -77,24 +101,37 @@ export function extractTopicsFromNotes(notes: string, subjectName: string): stri
   const sourceLines = relevantLines.length > 3 ? relevantLines : lines
 
   for (const line of sourceLines) {
-    // "Term: definition" → extract term
+    // "Term: definition" → extract term only
     const colonMatch = line.match(/^(.+?):\s*.{5,}/)
     if (colonMatch) {
       const term = colonMatch[1].replace(/^[-•*#\d.]+\s*/, '').trim()
-      if (term.length > 2 && term.length < 60) topics.push(term)
+      if (isUsefulTopic(term)) topics.push(term)
       continue
     }
-    // Bullet / numbered list items
-    const bulletMatch = line.match(/^[-•*\d.]+\s+(.+)/)
+    // Bullet items — only short ones that look like topics
+    const bulletMatch = line.match(/^[-•*]\s+(.+)/)
     if (bulletMatch) {
       const item = bulletMatch[1].trim()
-      if (item.length > 3 && item.length < 80) topics.push(item)
+      // Only keep if it's a short phrase (likely a concept, not an instruction sentence)
+      const wordCount = item.split(' ').length
+      if (wordCount <= 5 && isUsefulTopic(item)) topics.push(item)
       continue
     }
-    // Short lines that look like headings (all caps, title case, or very short)
-    if (line.length < 50 && line.length > 3 && !line.includes('  ')) {
+    // Numbered list items
+    const numberedMatch = line.match(/^\d+\.\s+(.+)/)
+    if (numberedMatch) {
+      const item = numberedMatch[1].trim()
+      const wordCount = item.split(' ').length
+      if (wordCount <= 5 && isUsefulTopic(item)) topics.push(item)
+      continue
+    }
+    // Short standalone lines = likely headings/topics
+    if (line.length < 45 && line.length > 4 && !line.includes('  ')) {
       const wordCount = line.split(' ').length
-      if (wordCount <= 6) topics.push(line.replace(/^#+\s*/, ''))
+      if (wordCount <= 5) {
+        const clean = line.replace(/^#+\s*/, '').trim()
+        if (isUsefulTopic(clean)) topics.push(clean)
+      }
     }
   }
 

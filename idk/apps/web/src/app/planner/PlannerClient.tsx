@@ -29,6 +29,7 @@ export default function PlannerClient() {
   const [doneTasks, setDoneTasks] = useState<Set<string>>(new Set())
   const [selectedDate, setSelectedDate] = useState(getTodayStr())
   const [view, setView] = useState<'today' | 'week' | 'subjects'>('today')
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   useEffect(() => {
     const saved = localStorage.getItem('bloomPlan')
@@ -228,6 +229,14 @@ export default function PlannerClient() {
                              task.sessionType === 'practice'      ? '💪 ' : '📖 '}
                             {task.sessionLabel}
                           </div>
+                          {!isDone && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); copyPrompt(task) }}
+                              className="mt-2 text-xs px-3 py-1 rounded-lg bg-white/5 hover:bg-violet-500/20 border border-white/10 hover:border-violet-500/40 text-white/40 hover:text-violet-300 transition-all flex items-center gap-1.5"
+                            >
+                              {copiedId === task.id ? '✓ Copied! Paste into ChatGPT' : '📋 Copy revision prompt'}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

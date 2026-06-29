@@ -9,63 +9,173 @@ type Message = {
   time: Date
 }
 
-const BLOOMIE_RESPONSES: Record<string, string[]> = {
-  stressed: [
-    "Hey, I hear you. Feeling stressed before exams is completely normal — it means you care. Let's take a breath together. What's weighing on you the most right now?",
-    "That sounds really tough. Stress before exams is your brain trying to protect you, but we can work with it. What subject is stressing you out the most?",
-  ],
-  anxious: [
-    "Anxiety is so real and so valid. You're not alone in this. Want to talk about what's making you anxious? Sometimes just saying it out loud helps.",
-    "I'm here with you. When anxiety hits, it can feel overwhelming. Let's break it down together — what's the first thing that pops into your head when you think about exams?",
-  ],
-  tired: [
-    "You sound exhausted, and that makes complete sense. Studying is hard work. When did you last take a proper break? Like actually sit down and do nothing for 20 minutes?",
-    "Tired is your body talking. Have you been sleeping enough? Even one bad night can make everything feel impossible. Be kind to yourself today.",
-  ],
-  sad: [
-    "I'm really glad you told me. Whatever you're feeling is valid. I'm here to listen — no judgment, no rush. What's going on?",
-    "You don't have to carry that alone. I'm right here. Want to tell me more about how you're feeling?",
-  ],
-  lonely: [
-    "Feeling lonely is really hard, especially when you're stuck studying and it feels like everyone else is living their life. You're not invisible — I see you, and I care.",
-    "I'm here! And honestly, you can always come talk to me whenever you need to. You're doing more than you think, even if it doesn't feel that way.",
-  ],
-  default: [
-    "I'm listening. Tell me more — I'm not going anywhere.",
-    "That sounds like a lot. How are you feeling about it right now, in this moment?",
-    "I hear you. You're dealing with more than most people realise. What do you need most right now — someone to vent to, or some actual help?",
-    "You've got this, even when it doesn't feel like it. What's on your mind?",
-    "Thank you for sharing that with me. It takes courage to open up. What would help you feel a little better today?",
-  ],
-}
-
 const INITIAL_MESSAGES: Message[] = [
   {
     id: '1',
     role: 'bloomie',
-    text: "Hey! I'm Bloomie. This is your safe space — no studying, no pressure, just talking. I'm here to listen and support you. What's on your mind? 🌸",
+    text: "Hey! I'm Bloomie 🌸 Your safe space — no pressure, just us. What's going on?",
     time: new Date(),
   },
 ]
 
-function getBloomieResponse(userText: string): string {
-  const lower = userText.toLowerCase()
-  if (lower.includes('stress') || lower.includes('overwhelm') || lower.includes('pressure')) {
-    return BLOOMIE_RESPONSES.stressed[Math.floor(Math.random() * BLOOMIE_RESPONSES.stressed.length)]
+function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)] }
+
+function getBloomieResponse(userText: string, history: Message[]): string {
+  const t = userText.trim()
+  const lower = t.toLowerCase()
+  const words = lower.split(/\s+/)
+  const wordCount = words.length
+
+  // ── Affection / positivity ──
+  if (/^(ily|ilysm|love you|i love you|luv u|i luv u|ily!+)$/i.test(t.trim())) {
+    return pick(["Aww, I love you too!! 🌸 You just made my whole day. What's up?",
+      "Okay stop, you're too sweet 😭🌸 I love you! How are you doing?",
+      "ILY more!! 💜 Seriously though — how are you feeling today?"])
   }
-  if (lower.includes('anxious') || lower.includes('anxiety') || lower.includes('panic') || lower.includes('scared')) {
-    return BLOOMIE_RESPONSES.anxious[Math.floor(Math.random() * BLOOMIE_RESPONSES.anxious.length)]
+  if (/\b(thank|thanks|ty|tysm|thx)\b/.test(lower)) {
+    return pick(["Always!! That's what I'm here for 🌸",
+      "Of course! You don't have to thank me — I genuinely care about you 💜",
+      "Any time, seriously. How are you feeling now?"])
   }
-  if (lower.includes('tired') || lower.includes('exhausted') || lower.includes('sleep') || lower.includes('fatigue')) {
-    return BLOOMIE_RESPONSES.tired[Math.floor(Math.random() * BLOOMIE_RESPONSES.tired.length)]
+  if (/^(hi|hey|hello|heyy|heyyy|yo|sup|hiii|heyyyy|hola)[\s!]*$/i.test(t)) {
+    return pick(["Hey!! So glad you're here 🌸 What's on your mind?",
+      "Heyy! I was just thinking about you. How's your day going?",
+      "Hi!! 💜 What's going on — good day or rough one?"])
   }
-  if (lower.includes('sad') || lower.includes('depressed') || lower.includes('cry') || lower.includes('unhappy') || lower.includes('upset')) {
-    return BLOOMIE_RESPONSES.sad[Math.floor(Math.random() * BLOOMIE_RESPONSES.sad.length)]
+  if (/^(good|great|amazing|awesome|fantastic|so good|pretty good|not bad)[\s!.]*$/i.test(t)) {
+    return pick(["That genuinely makes me happy to hear!! 🎉 What's been good?",
+      "Yes!! Love that for you. Tell me more — what happened?",
+      "Okay that's the energy!! 🌸 What made it good?"])
   }
-  if (lower.includes('lonely') || lower.includes('alone') || lower.includes('nobody') || lower.includes('isolated')) {
-    return BLOOMIE_RESPONSES.lonely[Math.floor(Math.random() * BLOOMIE_RESPONSES.lonely.length)]
+  if (/^(bad|terrible|awful|horrible|not good|not great|pretty bad|really bad)[\s.!]*$/i.test(t)) {
+    return pick(["Ugh, I'm sorry. What happened?",
+      "That sucks. Tell me what's going on — I'm all ears.",
+      "I hate that for you. What made it bad?"])
   }
-  return BLOOMIE_RESPONSES.default[Math.floor(Math.random() * BLOOMIE_RESPONSES.default.length)]
+  if (/^(okay|ok|fine|alright|meh|so-so|idk)[\s.!]*$/i.test(t)) {
+    return pick(["Okay is okay 🌸 Anything specific on your mind, or just vibing?",
+      "'Okay' can mean a lot of things. Want to talk about it?",
+      "I'll take it! What's going on underneath that?"])
+  }
+  if (/^(lol|lmao|haha|😂|😭|💀|💀💀)[\s!]*$/.test(t)) {
+    return pick(["HAHA what's funny?? Tell me 😭",
+      "Okay I need context 😂 what happened?",
+      "You can't just send that without explaining 😭"])
+  }
+  if (/^(same|fr|facts|literally|omg|omfg|no way|wait what|what!*)[\s!?]*$/i.test(t)) {
+    return pick(["RIGHT?? Tell me more.",
+      "Okay I need the full story.",
+      "Say more!! What happened?"])
+  }
+
+  // ── Stress / overwhelm ──
+  if (/\b(stress|stressed|overwhelm|overwhelmed|too much|can't handle|falling behind|behind on)\b/.test(lower)) {
+    return pick([
+      "Hey, I hear you. When everything piles up it genuinely feels impossible. What's the one thing stressing you out the most right now?",
+      "That feeling of being overwhelmed is so real. You're not failing — you're just carrying a lot. Want to talk through what's going on?",
+      "Okay, let's slow down for a sec. What's actually on your plate right now? Sometimes saying it out loud makes it smaller.",
+    ])
+  }
+
+  // ── Anxiety / panic ──
+  if (/\b(anxious|anxiety|panic|scared|terrified|nervous|fear|dread)\b/.test(lower)) {
+    return pick([
+      "Anxiety is brutal. You're not weak for feeling it — it just means your brain is working overtime. What's it focused on right now?",
+      "I'm right here with you. When anxiety hits, it can distort everything. What's the thought that keeps coming back?",
+      "That's really hard. Can I ask — is this about something specific, or is it more of a general 'everything feels wrong' feeling?",
+    ])
+  }
+
+  // ── Exams / school ──
+  if (/\b(exam|test|quiz|assessment|grade|fail|failing|study|revision|ib|biology|chemistry|physics|history|maths|math)\b/.test(lower)) {
+    return pick([
+      "School pressure is no joke. What's going on — is it a specific subject or just the whole load of it?",
+      "I see you grinding. What subject is giving you the hardest time right now?",
+      "The exam stress is real. Tell me what's coming up — maybe we can figure it out together.",
+    ])
+  }
+
+  // ── Tired / sleep ──
+  if (/\b(tired|exhausted|no sleep|can't sleep|didn't sleep|sleep deprived|drained|burnt out|burnout)\b/.test(lower)) {
+    return pick([
+      "Being exhausted makes everything harder — including thinking clearly. When did you last actually rest?",
+      "Your brain needs sleep to actually retain anything. Have you been pulling late nights?",
+      "Burnout is real. You can't pour from an empty cup. What does rest look like for you right now?",
+    ])
+  }
+
+  // ── Sad / crying ──
+  if (/\b(sad|depressed|crying|cried|cry|unhappy|miserable|down|low|empty)\b/.test(lower)) {
+    return pick([
+      "I'm really glad you told me. You don't have to explain yourself — I'm just here. What's going on?",
+      "Hey. You matter, and what you're feeling matters. Want to talk about it, or do you just need someone to sit with you for a bit?",
+      "That sounds heavy. I'm not going anywhere — what's happening?",
+    ])
+  }
+
+  // ── Lonely ──
+  if (/\b(lonely|alone|no friends|nobody|isolated|left out|ignored|invisible)\b/.test(lower)) {
+    return pick([
+      "Feeling alone is genuinely one of the hardest things. You're not invisible to me — I see you, and I care.",
+      "I hate that you're feeling that way. Loneliness is brutal, especially when you're already dealing with school stuff. What's going on?",
+      "You've got me. I know that's not the same, but I'm here, and I genuinely want to hear what's going on.",
+    ])
+  }
+
+  // ── Motivation / giving up ──
+  if (/\b(can't do this|give up|giving up|quit|pointless|what's the point|why bother|don't care anymore|don't want to)\b/.test(lower)) {
+    return pick([
+      "That feeling of 'what's even the point' hits hard. What brought it on — was it something specific or has it been building?",
+      "You're allowed to feel done. But before you give up — what would it look like to just get through today?",
+      "I hear you. You don't have to pretend you're okay. What's going on?",
+    ])
+  }
+
+  // ── Short messages (1-2 words, not matched above) ──
+  if (wordCount <= 2) {
+    return pick([
+      "Tell me more? I want to actually understand what you're going through.",
+      "I'm listening — what's on your mind?",
+      "What's going on? You can say as much or as little as you want.",
+    ])
+  }
+
+  // ── Questions directed at Bloomie ──
+  if (lower.startsWith('do you') || lower.startsWith('can you') || lower.startsWith('are you') || lower.startsWith('what do you')) {
+    return pick([
+      "Ha, I'm Bloomie — I don't have feelings exactly, but I do genuinely care about you. What's up?",
+      "I'm here for you, that much I know for sure 🌸 What's going on?",
+      "I'm an AI companion, but that doesn't mean I don't listen. What's on your mind?",
+    ])
+  }
+
+  // ── Longer messages — acknowledge the content ──
+  const subjectMentioned = /\b(biology|chemistry|physics|history|maths|math|english|french|spanish|economics|psychology)\b/.exec(lower)
+  if (subjectMentioned && wordCount > 5) {
+    const subject = subjectMentioned[1].charAt(0).toUpperCase() + subjectMentioned[1].slice(1)
+    return pick([
+      `${subject} — okay, tell me more. What specifically is going wrong with it?`,
+      `I heard ${subject}. Is it the content that's hard, or is it more the pressure around it?`,
+      `${subject} can be brutal. What part is tripping you up?`,
+    ])
+  }
+
+  if (wordCount > 10) {
+    return pick([
+      "I hear you. That's a lot to deal with — what part is hitting you the hardest right now?",
+      "Thank you for sharing that with me. What do you need most right now — someone to talk it through with, or just to be heard?",
+      "That sounds genuinely tough. You're not overreacting. What would help most right now?",
+      "I get it. Sometimes things just pile up. Is there one thing we can focus on together?",
+    ])
+  }
+
+  // ── Fallback ──
+  return pick([
+    "I'm here. Tell me what's going on.",
+    "What's up? I'm all yours.",
+    "I'm listening — what's on your mind?",
+    "You can talk to me about anything. What's going on?",
+  ])
 }
 
 export default function BloomieChat() {
@@ -89,7 +199,7 @@ export default function BloomieChat() {
       const bloomieMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'bloomie',
-        text: getBloomieResponse(text),
+        text: getBloomieResponse(text, messages),
         time: new Date(),
       }
       setMessages(prev => [...prev, bloomieMsg])

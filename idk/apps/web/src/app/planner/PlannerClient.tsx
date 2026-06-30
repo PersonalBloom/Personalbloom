@@ -31,6 +31,8 @@ export default function PlannerClient() {
   const [selectedDate, setSelectedDate] = useState(getTodayStr())
   const [view, setView] = useState<'today' | 'week' | 'subjects'>('today')
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [editPromptTask, setEditPromptTask] = useState<StudyTask | null>(null)
+  const [editPromptText, setEditPromptText] = useState('')
 
   useEffect(() => {
     const saved = localStorage.getItem('bloomPlan')
@@ -70,42 +72,98 @@ export default function PlannerClient() {
 
   function generateRevisionPrompt(task: StudyTask): string {
     const days = Math.ceil((new Date(task.date).getTime() - new Date().setHours(0,0,0,0)) / 86400000)
-    const urgency = days <= 3 ? `exam in ${days} day(s) — high-yield only, no fluff`
-      : days <= 7 ? `exam in ${days} days — consolidate and practise past-paper style`
-      : `exam in ${days} days — build deep understanding`
     const numSessions = Math.max(1, Math.round(task.durationMinutes / 20))
+    const totalMinutes = numSessions * 20
 
-    // Pull class notes for this subject
+    const urgencyLine = days <= 0  ? `⚠️ EXAM TODAY — focus only on highest-yield points, no new concepts`
+      : days === 1 ? `⚠️ EXAM TOMORROW — consolidate everything, prioritise weak spots, quick practice questions only`
+      : days <= 3  ? `Exam in ${days} days — high-yield revision, past-paper style questions, no fluff`
+      : days <= 7  ? `Exam in ${days} days — consolidate understanding, mix of explanation and practice`
+      : `Exam in ${days} days — build deep understanding, connect concepts, push difficulty`
+
+    // Pull ALL notes for this subject (not just first match, not capped at 800 chars)
     const classNotes = (() => {
       try {
-        const ns = JSON.parse(localStorage.getItem('bloomNotes') || '[]') as Array<{content:string}>
-        const subjectLower = task.subjectName.toLowerCase().split(' ')[0]
-        const matches = ns.filter(n => n.content.toLowerCase().includes(subjectLower))
-        if (matches.length === 0) return ''
-        return '\n\nMy class notes:\n' + matches.map(n => n.content).join('\n\n').slice(0, 800)
-      } catch { return '' }
+        const ns = JSON.parse(localStorage.getItem('bloomNotes') || '[]') as Array<{id:string; subject:string; title:string; content:string}>
+        const subjectWord = task.subjectName.toLowerCase().split(' ')[0]
+        // Match by subject field first, then by content keyword
+        const bySubject = ns.filter(n => n.subject?.toLowerCase().includes(subjectWord))
+        const byContent = ns.filter(n => !bySubject.includes(n) && n.content.toLowerCase().includes(subjectWord))
+        const matches = [...bySubject, ...byContent]
+        if (matches.length === 0) return { text: '', count: 0 }
+        const combined = matches.map(n => `[Note: ${n.title || n.subject}]\n${n.content}`).join('\n\n---\n\n')
+        // Use up to 3000 chars — enough to be specific
+        return { text: combined.slice(0, 3000) + (combined.length > 3000 ? '\n...[notes truncated]' : ''), count: matches.length }
+      } catch { return { text: '', count: 0 } }
     })()
 
-    // Pull relevant textbook excerpt for this specific topic
-    const textbookExcerpt = (() => {
+    // Pull MULTIPLE textbook excerpts — topic + subtopics from the session label
+    const textbookContent = (() => {
       try {
         const tbContent = loadTextbookForSubject(task.subjectName)
-        if (!tbContent || !task.topic) return ''
-        const excerpt = findTextbookExcerpt(tbContent, task.topic)
-        return excerpt ? `\n\nFrom my textbook:\n${excerpt}` : ''
+        if (!tbContent) return ''
+        // Extract keywords from topic + session label
+        const keywords = [task.topic, task.sessionLabel]
+          .filter(Boolean)
+          .flatMap(s => s!.split(/[:\-,]+/).map(p => p.trim()))
+          .filter(k => k.length > 3)
+        const excerpts = keywords
+          .map(k => findTextbookExcerpt(tbContent, k))
+          .filter(Boolean)
+          .filter((e, i, arr) => arr.indexOf(e) === i) // deduplicate
+          .slice(0, 3)
+        if (excerpts.length === 0) return ''
+        return excerpts.join('\n\n---\n\n').slice(0, 2500)
       } catch { return '' }
     })()
 
-    const hasContext = classNotes || textbookExcerpt
-    return `${task.subjectName} — ${numSessions}×20 min — ${task.sessionLabel}\n\n${urgency}${classNotes}${textbookExcerpt}\n\n${hasContext
-      ? 'Based on my notes and textbook above, give me a precise structured revision session covering exactly this topic. Include: key definitions to memorise, 3–5 practice questions at exam difficulty, and a 5-question self-test at the end. Be specific — use the exact terms and concepts from my material.'
-      : 'Give me a structured revision session for this topic. Include: key definitions, worked examples, 3–5 practice questions at exam difficulty, and a 5-question self-test at the end.'
-    }`
+    const hasNotes = classNotes.text.length > 0
+    const hasTextbook = textbookContent.length > 0
+    const hasContext = hasNotes || hasTextbook
+
+    let prompt = `You are a precise, exam-focused study tutor. I have ${totalMinutes} minutes (${numSessions} × 20 min sessions) to revise the following topic.\n\n`
+    prompt += `SUBJECT: ${task.subjectName}\n`
+    prompt += `TOPIC: ${task.sessionLabel}\n`
+    prompt += `URGENCY: ${urgencyLine}\n`
+
+    if (hasNotes) {
+      prompt += `\n${'='.repeat(50)}\nMY CLASS NOTES (${classNotes.count} note${classNotes.count !== 1 ? 's' : ''}):\n${'='.repeat(50)}\n${classNotes.text}\n`
+    }
+    if (hasTextbook) {
+      prompt += `\n${'='.repeat(50)}\nMY TEXTBOOK (relevant sections):\n${'='.repeat(50)}\n${textbookContent}\n`
+    }
+
+    prompt += `\n${'='.repeat(50)}\nINSTRUCTIONS:\n${'='.repeat(50)}\n`
+
+    if (hasContext) {
+      prompt += `Using ONLY the notes and textbook content above (do not add outside information unless I have nothing), create a structured ${totalMinutes}-minute revision session. Everything must be grounded in my actual material.\n\n`
+    } else {
+      prompt += `Create a structured ${totalMinutes}-minute revision session on this topic.\n\n`
+    }
+
+    prompt += `Structure it exactly like this:\n\n`
+    prompt += `1. CORE CONCEPTS (5 min) — bullet-point the 5–8 most important ideas from ${hasContext ? 'my notes/textbook' : 'this topic'}, using the exact terminology I need to know\n\n`
+    prompt += `2. KEY DEFINITIONS (5 min) — list every term I must be able to define precisely, with the definition\n\n`
+    prompt += `3. WORKED EXAMPLES (${Math.max(5, totalMinutes - 25)} min) — walk me through ${Math.max(2, numSessions)} exam-style problems step by step, at the difficulty level of ${task.subjectName} exams\n\n`
+    prompt += `4. SELF-TEST (10 min) — give me 5 questions at increasing difficulty, then reveal the answers below. Do NOT show answers before I scroll down.\n\n`
+    if (days <= 7) {
+      prompt += `5. EXAM TIPS — 3 specific things students commonly get wrong on this topic, and how to avoid them`
+    } else {
+      prompt += `5. GO DEEPER — 2–3 harder extension questions to push my understanding beyond the basics`
+    }
+
+    return prompt
   }
 
-  function copyPrompt(task: StudyTask) {
-    navigator.clipboard.writeText(generateRevisionPrompt(task))
-    setCopiedId(task.id)
+  function openEditPrompt(task: StudyTask) {
+    setEditPromptText(generateRevisionPrompt(task))
+    setEditPromptTask(task)
+  }
+
+  function copyAndClose() {
+    navigator.clipboard.writeText(editPromptText)
+    setCopiedId(editPromptTask?.id || null)
+    setEditPromptTask(null)
     setTimeout(() => setCopiedId(null), 2500)
   }
 
@@ -309,8 +367,8 @@ export default function PlannerClient() {
                         {/* Copy icon — small, right side */}
                         {!isDone && (
                           <button
-                            onClick={(e) => { e.stopPropagation(); copyPrompt(task) }}
-                            title="Copy revision prompt for ChatGPT"
+                            onClick={(e) => { e.stopPropagation(); openEditPrompt(task) }}
+                            title="Edit & copy revision prompt"
                             className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 hover:bg-violet-500/20 border border-white/10 hover:border-violet-500/40 text-white/30 hover:text-violet-300 transition-all text-sm"
                           >
                             {copiedId === task.id ? '✓' : '📋'}
@@ -404,6 +462,43 @@ export default function PlannerClient() {
           </div>
         )}
       </div>
+      {/* Prompt edit modal */}
+      {editPromptTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setEditPromptTask(null)}>
+          <div className="w-full max-w-2xl bg-[#1a1a2e] border border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+              <div>
+                <h2 className="font-bold text-base">✏️ Edit Revision Prompt</h2>
+                <p className="text-xs text-white/40 mt-0.5">{editPromptTask.subjectName} · {editPromptTask.sessionLabel}</p>
+              </div>
+              <button onClick={() => setEditPromptTask(null)} className="text-white/30 hover:text-white text-xl leading-none">✕</button>
+            </div>
+            {/* Editable textarea */}
+            <textarea
+              value={editPromptText}
+              onChange={e => setEditPromptText(e.target.value)}
+              className="flex-1 w-full bg-transparent text-white/80 text-sm leading-relaxed px-5 py-4 resize-none focus:outline-none font-mono overflow-y-auto"
+              style={{ minHeight: '300px', maxHeight: '60vh' }}
+            />
+            {/* Footer */}
+            <div className="flex items-center justify-between px-5 py-4 border-t border-white/10 gap-3">
+              <span className="text-xs text-white/30">{editPromptText.length} chars — edit anything before copying</span>
+              <div className="flex gap-2">
+                <button onClick={() => setEditPromptText(generateRevisionPrompt(editPromptTask))}
+                  className="px-3 py-2 text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/50 transition-all">
+                  ↺ Reset
+                </button>
+                <button onClick={copyAndClose}
+                  className="px-4 py-2 text-sm bg-gradient-to-r from-violet-500 to-pink-500 hover:opacity-90 rounded-xl font-semibold text-white transition-all">
+                  📋 Copy & paste into ChatGPT
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

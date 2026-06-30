@@ -105,7 +105,7 @@ export default function ProgressPage() {
       setProfile(p)
       const started = new Date(p.trial_started_at ?? 0).getTime()
       const daysUsed = (Date.now() - started) / 86400000
-      setIsPremium(localStorage.getItem('bloomSoulPlus') === 'true' || p.plan === 'soulplus' || (p.plan === 'trial' && daysUsed < p.trial_days))
+      setIsPremium(localStorage.getItem('bloomSoulPlus') === 'true' || p.plan === 'soul_plus')
     }
     if (res) setResults(res as QuizResult[])
   }, [supabase])

@@ -33,8 +33,18 @@ export default function PlannerClient() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [editPromptTask, setEditPromptTask] = useState<StudyTask | null>(null)
   const [editPromptText, setEditPromptText] = useState('')
+  const [weaknesses, setWeaknesses] = useState<Record<string, string>>({}) // subjectId -> note
+  const [editingWeakness, setEditingWeakness] = useState<string | null>(null)
+  const [weaknessInput, setWeaknessInput] = useState('')
+  const [bloomieInsight, setBloomieInsight] = useState('')
 
   useEffect(() => {
+    // Load weaknesses
+    try {
+      const w = JSON.parse(localStorage.getItem('bloomWeaknesses') || '{}')
+      setWeaknesses(w)
+    } catch {}
+
     const saved = localStorage.getItem('bloomPlan')
     const savedDone = localStorage.getItem('bloomDoneTasks')
     if (saved) {
@@ -63,6 +73,30 @@ export default function PlannerClient() {
         const generated = generateStudyPlan(freshSubjects, p.hoursPerDay)
         setTasks(generated)
         localStorage.setItem('bloomTasksCache', JSON.stringify(generated))
+
+        // Build Bloomie personalised insight
+        const todayStr2 = new Date().toISOString().split('T')[0]
+        const todayTasks2 = generated.filter((t: StudyTask) => t.date === todayStr2)
+        const nearestSubject = p.subjects
+          .map((s: PlanSubject) => ({ ...s, days: Math.ceil((new Date(s.examDate).getTime() - Date.now()) / 86400000) }))
+          .filter((s: PlanSubject & {days:number}) => s.days >= 0)
+          .sort((a: PlanSubject & {days:number}, b: PlanSubject & {days:number}) => a.days - b.days)[0]
+        const ws: Record<string,string> = JSON.parse(localStorage.getItem('bloomWeaknesses') || '{}')
+        const weakSubjects = Object.entries(ws).filter(([,v]) => v?.trim()).map(([k]) => k)
+        const weakSubjectNames = p.subjects.filter((s: PlanSubject) => weakSubjects.includes(s.id)).map((s: PlanSubject) => s.name)
+
+        let msg = ''
+        if (nearestSubject && nearestSubject.days <= 3) {
+          msg = `${nearestSubject.name} exam in ${nearestSubject.days} day${nearestSubject.days !== 1 ? 's' : ''}!! Focus on your weakest points first — no time to cover everything, make every minute count 🔥`
+        } else if (weakSubjectNames.length > 0 && todayTasks2.length > 0) {
+          msg = `You flagged ${weakSubjectNames[0]} as a weak spot — make sure you give it extra attention today. Don't rush through it, actually understand it 💜`
+        } else if (todayTasks2.length === 0) {
+          msg = `No sessions scheduled today! Enjoy the rest, or use it to review flashcards if you want to stay sharp 🌸`
+        } else {
+          const subjects = [...new Set(todayTasks2.map((t: StudyTask) => t.subjectName))]
+          msg = `Today you have ${todayTasks2.length} session${todayTasks2.length !== 1 ? 's' : ''} across ${subjects.join(' and ')}. ${nearestSubject ? `Your nearest exam is ${nearestSubject.name} in ${nearestSubject.days} days.` : 'You got this!'} 🌸`
+        }
+        setBloomieInsight(msg)
       }, 0)
     }
     if (savedDone) {
@@ -117,6 +151,15 @@ export default function PlannerClient() {
       } catch { return '' }
     })()
 
+    // Pull weakness note for this subject
+    const weaknessNote = (() => {
+      try {
+        const ws: Record<string,string> = JSON.parse(localStorage.getItem('bloomWeaknesses') || '{}')
+        const sub = plan?.subjects?.find((s: PlanSubject) => s.name === task.subjectName)
+        return sub ? ws[sub.id] || '' : ''
+      } catch { return '' }
+    })()
+
     const hasNotes = classNotes.text.length > 0
     const hasTextbook = textbookContent.length > 0
     const hasContext = hasNotes || hasTextbook
@@ -125,6 +168,10 @@ export default function PlannerClient() {
     prompt += `SUBJECT: ${task.subjectName}\n`
     prompt += `TOPIC: ${task.sessionLabel}\n`
     prompt += `URGENCY: ${urgencyLine}\n`
+    if (weaknessNote) {
+      prompt += `MY WEAK SPOTS IN THIS SUBJECT: ${weaknessNote}\n`
+      prompt += `→ Pay extra attention to these areas. Weight your questions and examples toward these weaknesses.\n`
+    }
 
     if (hasNotes) {
       prompt += `\n${'='.repeat(50)}\nMY CLASS NOTES (${classNotes.count} note${classNotes.count !== 1 ? 's' : ''}):\n${'='.repeat(50)}\n${classNotes.text}\n`
@@ -153,6 +200,14 @@ export default function PlannerClient() {
     }
 
     return prompt
+  }
+
+  function saveWeakness(subjectId: string, note: string) {
+    const updated = { ...weaknesses, [subjectId]: note }
+    setWeaknesses(updated)
+    localStorage.setItem('bloomWeaknesses', JSON.stringify(updated))
+    setEditingWeakness(null)
+    setWeaknessInput('')
   }
 
   function openEditPrompt(task: StudyTask) {
@@ -271,6 +326,17 @@ export default function PlannerClient() {
           </div>
         )}
 
+        {/* Bloomie insight — personalised to their plan */}
+        {bloomieInsight && selectedDate === todayStr && (
+          <div className="flex items-start gap-3 mb-6 p-4 bg-violet-500/10 border border-violet-500/20 rounded-2xl">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-xl shrink-0">🌸</div>
+            <div>
+              <div className="text-xs font-semibold text-violet-300 mb-1">Bloomie</div>
+              <p className="text-sm text-white/80 leading-relaxed">{bloomieInsight}</p>
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-2 mb-6">
           {(['today', 'week', 'subjects'] as const).map(v => (
             <button
@@ -363,6 +429,12 @@ export default function PlannerClient() {
                             {numSessions}×20 min
                             {daysLeft > 0 && ` · ${daysLeft} day${daysLeft !== 1 ? 's' : ''} left`}
                           </div>
+                          {/* Weakness indicator */}
+                          {(() => {
+                            const sub = plan.subjects.find((s: PlanSubject) => s.name === task.subjectName)
+                            const w = sub ? weaknesses[sub.id] : null
+                            return w ? <div className="text-xs text-red-400/70 mt-0.5">⚠️ {w}</div> : null
+                          })()}
                         </div>
                         {/* Copy icon — small, right side */}
                         {!isDone && (
@@ -448,13 +520,42 @@ export default function PlannerClient() {
                   <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
                     <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: subject.color }} />
                   </div>
-                  <div className={`mt-2 text-xs inline-flex px-2 py-0.5 rounded-full ${
-                    subject.priority === 'high' ? 'bg-red-500/20 text-red-400' :
-                    subject.priority === 'low' ? 'bg-green-500/20 text-green-400' :
-                    'bg-amber-500/20 text-amber-400'
-                  }`}>
-                    {subject.priority === 'high' ? '🔥 High priority' :
-                     subject.priority === 'low' ? '💚 Low priority' : '⚡ Medium priority'}
+                  <div className="flex items-center gap-2 flex-wrap mt-3">
+                    <div className={`text-xs inline-flex px-2 py-0.5 rounded-full ${
+                      subject.priority === 'high' ? 'bg-red-500/20 text-red-400' :
+                      subject.priority === 'low' ? 'bg-green-500/20 text-green-400' :
+                      'bg-amber-500/20 text-amber-400'
+                    }`}>
+                      {subject.priority === 'high' ? '🔥 High priority' :
+                       subject.priority === 'low' ? '💚 Low priority' : '⚡ Medium priority'}
+                    </div>
+                    {/* Weakness tag */}
+                    {editingWeakness === subject.id ? (
+                      <div className="flex items-center gap-2 flex-1" onClick={e => e.stopPropagation()}>
+                        <input
+                          autoFocus
+                          value={weaknessInput}
+                          onChange={e => setWeaknessInput(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') saveWeakness(subject.id, weaknessInput); if (e.key === 'Escape') setEditingWeakness(null) }}
+                          placeholder="e.g. integration, cell respiration, WW2 causes..."
+                          className="flex-1 text-xs px-3 py-1.5 bg-white/10 border border-violet-500/40 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-violet-400"
+                        />
+                        <button onClick={() => saveWeakness(subject.id, weaknessInput)}
+                          className="text-xs px-3 py-1.5 bg-violet-500 rounded-xl text-white font-medium">Save</button>
+                        <button onClick={() => setEditingWeakness(null)}
+                          className="text-xs text-white/30 hover:text-white">✕</button>
+                      </div>
+                    ) : weaknesses[subject.id] ? (
+                      <button onClick={() => { setEditingWeakness(subject.id); setWeaknessInput(weaknesses[subject.id]) }}
+                        className="text-xs px-2.5 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-300 hover:bg-red-500/25 transition-all">
+                        ⚠️ Struggling with: {weaknesses[subject.id]}
+                      </button>
+                    ) : (
+                      <button onClick={() => { setEditingWeakness(subject.id); setWeaknessInput('') }}
+                        className="text-xs px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/30 hover:text-white/60 hover:border-white/20 transition-all">
+                        + flag weak spots
+                      </button>
+                    )}
                   </div>
                 </div>
               )

@@ -17,6 +17,7 @@ const NAV = [
   { href: '/dashboard/bloomie',      icon: '💜', label: 'Bloomie' },
   { href: '/dashboard/pomodoro',     icon: '🎧', label: 'Focus' },
   { href: '/dashboard/progress',     icon: '📊', label: 'Progress' },
+  { href: '/dashboard/grade-predictor', icon: '📈', label: 'Grades' },
   { href: '/pricing',                icon: '✨', label: 'Soul+' },
   { href: '/dashboard/settings',    icon: '⚙️', label: 'Settings' },
 ]
@@ -43,8 +44,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           localStorage.setItem('bloomSubscriptionId', profile.stripe_subscription_id)
         }
       } else {
-        localStorage.removeItem('bloomSoulPlus')
-        localStorage.removeItem('bloomSubscriptionId')
+        // Also honour XP-earned Soul+ (20,900 XP milestone)
+        const game = (() => { try { return JSON.parse(localStorage.getItem('bloomGame') || '{}') } catch { return {} } })()
+        const earnedByXP = (game.xp || 0) >= 20900
+        if (earnedByXP) {
+          localStorage.setItem('bloomSoulPlus', 'true')
+        } else {
+          localStorage.removeItem('bloomSoulPlus')
+          localStorage.removeItem('bloomSubscriptionId')
+        }
         // Downgrade any lingering trial accounts to free
         if (profile?.plan === 'trial') {
           await supabase.from('profiles').update({ plan: 'free' }).eq('id', user.id)

@@ -17,10 +17,10 @@ const FREE_FEATURES = [
   { icon: '🎧', label: 'Focus Rooms (lo-fi + sounds)', included: false },
   { icon: '📊', label: 'Weakness Analytics', included: false },
   { icon: '🎁', label: 'Study Wrapped', included: false },
-  { icon: '🔮', label: 'Priority Bloomie AI', included: false },
+  { icon: '🔮', label: 'Priority Bloomie AI (soon)', included: false },
   { icon: '👑', label: 'Exclusive achievements', included: false },
   { icon: '♾️', label: 'Unlimited notes & subjects', included: false },
-  { icon: '🌙', label: 'Offline mode', included: false },
+  { icon: '🌙', label: 'Offline mode (soon)', included: false },
 ]
 
 const SOUL_FEATURES = FREE_FEATURES.map(f => ({ ...f, included: true }))

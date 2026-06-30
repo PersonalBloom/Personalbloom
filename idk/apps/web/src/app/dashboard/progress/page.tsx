@@ -101,10 +101,8 @@ export default function ProgressPage() {
       supabase.from('quiz_results').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(100),
     ])
     if (prof) {
-      const p = prof as Profile & { plan: string; trial_started_at: string; trial_days: number }
+      const p = prof as Profile & { plan: string }
       setProfile(p)
-      const started = new Date(p.trial_started_at ?? 0).getTime()
-      const daysUsed = (Date.now() - started) / 86400000
       setIsPremium(localStorage.getItem('bloomSoulPlus') === 'true' || p.plan === 'soul_plus')
     }
     if (res) setResults(res as QuizResult[])

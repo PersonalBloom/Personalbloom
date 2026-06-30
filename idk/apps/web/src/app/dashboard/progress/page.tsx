@@ -18,13 +18,82 @@ function StatCard({ icon, label, value }: { icon: string; label: string; value: 
   )
 }
 
+
+// ── Study Heatmap ─────────────────────────────────────────────────────────
+function StudyHeatmap({ studyDates }: { studyDates: string[] }) {
+  const counts: Record<string, number> = {}
+  studyDates.forEach(d => { counts[d] = (counts[d] || 0) + 1 })
+
+  // Build last 15 weeks of days
+  const today = new Date()
+  today.setHours(0,0,0,0)
+  const days: Date[] = []
+  for (let i = 104; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(today.getDate() - i)
+    days.push(d)
+  }
+  // Pad to start on Monday
+  const firstDow = days[0].getDay() || 7 // 1=Mon
+  const padded: (Date | null)[] = Array(firstDow - 1).fill(null).concat(days)
+  const weeks: (Date | null)[][] = []
+  for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7))
+
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+  return (
+    <div className="card">
+      <h2 className="font-bold text-lg mb-4">📅 Study Activity</h2>
+      <div className="overflow-x-auto">
+        <div className="flex gap-1 min-w-max">
+          {weeks.map((week, wi) => (
+            <div key={wi} className="flex flex-col gap-1">
+              {week.map((day, di) => {
+                if (!day) return <div key={di} className="w-3 h-3" />
+                const key = day.toISOString().split('T')[0]
+                const n = counts[key] || 0
+                const isToday = key === today.toISOString().split('T')[0]
+                const color = n === 0 ? 'bg-white/5' : n === 1 ? 'bg-violet-500/40' : n <= 3 ? 'bg-violet-500/70' : 'bg-violet-400'
+                return (
+                  <div key={di} title={`${key}: ${n} session${n!==1?'s':''}`}
+                    className={`w-3 h-3 rounded-sm ${color} ${isToday ? 'ring-1 ring-violet-400' : ''}`}
+                  />
+                )
+              })}
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-between text-xs text-white/30 mt-2 min-w-max px-0.5">
+          {[...new Set(days.map(d => MONTHS[d.getMonth()]))].map(m => <span key={m}>{m}</span>)}
+        </div>
+      </div>
+      <div className="flex items-center gap-2 mt-3 text-xs text-white/40">
+        <span>Less</span>
+        {['bg-white/5','bg-violet-500/40','bg-violet-500/70','bg-violet-400'].map((cl,i) => (
+          <div key={i} className={`w-3 h-3 rounded-sm ${cl}`} />
+        ))}
+        <span>More</span>
+      </div>
+    </div>
+  )
+}
+
 export default function ProgressPage() {
   const supabase = createClient()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [results, setResults] = useState<QuizResult[]>([])
   const [isPremium, setIsPremium] = useState(false)
 
+  const [gameState, setGameState] = useState<{xp:number;totalSessions:number;studyDates:string[]}>({xp:0,totalSessions:0,studyDates:[]})
+
   const load = useCallback(async () => {
+    // Read local game state immediately (no network)
+    try {
+      const gs = JSON.parse(localStorage.getItem('bloomGame') || '{}')
+      setGameState({ xp: gs.xp||0, totalSessions: gs.totalSessions||0, studyDates: gs.studyDates||[] })
+    } catch {}
+
+    // Then load Supabase data in background
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const [{ data: prof }, { data: res }] = await Promise.all([
@@ -36,7 +105,7 @@ export default function ProgressPage() {
       setProfile(p)
       const started = new Date(p.trial_started_at ?? 0).getTime()
       const daysUsed = (Date.now() - started) / 86400000
-      setIsPremium(p.plan === 'soulplus' || (p.plan === 'trial' && daysUsed < p.trial_days))
+      setIsPremium(localStorage.getItem('bloomSoulPlus') === 'true' || p.plan === 'soulplus' || (p.plan === 'trial' && daysUsed < p.trial_days))
     }
     if (res) setResults(res as QuizResult[])
   }, [supabase])
@@ -63,11 +132,13 @@ export default function ProgressPage() {
         <p className="text-white/50 text-sm">Track your growth and find what to improve</p>
       </div>
 
+      <StudyHeatmap studyDates={gameState.studyDates} />
+
       {/* Stats grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <StatCard icon="🔥" label="Day Streak"    value={`${profile?.streak || 0}d`} />
-        <StatCard icon="⚡" label="Growth Points" value={profile?.growth_points || 0} />
-        <StatCard icon="📚" label="Sessions"      value={profile?.total_sessions || 0} />
+        <StatCard icon="🔥" label="Day Streak"    value={`${profile?.streak || gameState.studyDates.length > 0 ? Math.min(profile?.streak||0, 999) : 0}d`} />
+        <StatCard icon="⚡" label="Growth Points" value={profile?.growth_points || gameState.xp} />
+        <StatCard icon="📚" label="Sessions"      value={profile?.total_sessions || gameState.totalSessions} />
         <StatCard icon="🧠" label="Quiz answers"  value={results.length} />
       </div>
 

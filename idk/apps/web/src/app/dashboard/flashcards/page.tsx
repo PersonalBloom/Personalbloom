@@ -87,6 +87,46 @@ function shuffle<T>(arr: T[]): T[] {
   return [...arr].sort(() => Math.random() - 0.5)
 }
 
+
+// ─── Spaced Repetition (SM-2 lite) ───────────────────────────────────────
+type SRSEntry = { ease: number; interval: number; dueDate: string }
+type SRSData  = Record<string, SRSEntry>
+
+function cardKey(card: Card) { return `${card.subject}::${card.front}` }
+
+function loadSRS(): SRSData {
+  try { return JSON.parse(localStorage.getItem('bloomSRS') || '{}') } catch { return {} }
+}
+function saveSRS(data: SRSData) {
+  localStorage.setItem('bloomSRS', JSON.stringify(data))
+}
+function isDue(entry: SRSEntry | undefined): boolean {
+  if (!entry) return true
+  return new Date(entry.dueDate) <= new Date()
+}
+function updateSRS(data: SRSData, card: Card, knew: boolean): SRSData {
+  const key  = cardKey(card)
+  const prev = data[key] ?? { ease: 2.5, interval: 1, dueDate: new Date().toISOString() }
+  let { ease, interval } = prev
+  if (knew) {
+    interval = Math.round(interval * ease)
+    ease = Math.min(3.0, ease + 0.1)
+  } else {
+    interval = 1
+    ease = Math.max(1.3, ease - 0.3)
+  }
+  const due = new Date()
+  due.setDate(due.getDate() + interval)
+  return { ...data, [key]: { ease, interval, dueDate: due.toISOString() } }
+}
+function sortByDue(cards: Card[], srs: SRSData): Card[] {
+  return [...cards].sort((a, b) => {
+    const da = new Date(srs[cardKey(a)]?.dueDate ?? 0).getTime()
+    const db = new Date(srs[cardKey(b)]?.dueDate ?? 0).getTime()
+    return da - db
+  })
+}
+
 export default function FlashcardsPage() {
   const [allCards, setAllCards] = useState<Card[]>([])
   const [deck, setDeck] = useState<Card[]>([])
@@ -102,6 +142,8 @@ export default function FlashcardsPage() {
   const [speedScore, setSpeedScore] = useState(0)
   const [speedDone, setSpeedDone] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const [srsData, setSrsData] = useState<SRSData>({})
+  const [dueCount, setDueCount] = useState(0)
 
   useEffect(() => {
     const saved = localStorage.getItem('bloomNotes')
@@ -112,11 +154,20 @@ export default function FlashcardsPage() {
       const subs = [...new Set(notes.map(n => n.subject))]
       setSubjects(subs)
     }
+    const srs = loadSRS()
+    setSrsData(srs)
+    // Count due cards
+    const notes2: Note[] = JSON.parse(localStorage.getItem('bloomNotes') || '[]')
+    const allC = notes2.flatMap(n => parseCards(n))
+    setDueCount(allC.filter(c => isDue(srs[cardKey(c)])).length)
   }, [])
 
   function startStudy() {
     const filtered = filterSubject === 'all' ? allCards : allCards.filter(c => c.subject === filterSubject)
-    setDeck(shuffle(filtered))
+    // Due cards first, then the rest shuffled
+    const due = filtered.filter(c => isDue(srsData[cardKey(c)]))
+    const notDue = shuffle(filtered.filter(c => !isDue(srsData[cardKey(c)])))
+    setDeck([...shuffle(due), ...notDue])
     setCurrentIdx(0)
     setFlipped(false)
     setKnown(new Set())
@@ -127,6 +178,10 @@ export default function FlashcardsPage() {
   function next(knew: boolean) {
     if (knew) setKnown(prev => new Set([...prev, currentIdx]))
     else setUnknown(prev => new Set([...prev, currentIdx]))
+    // Update SRS for this card
+    const updated = updateSRS(srsData, deck[currentIdx], knew)
+    setSrsData(updated)
+    saveSRS(updated)
     setFlipped(false)
     if (currentIdx + 1 >= deck.length) {
       setMode('done')

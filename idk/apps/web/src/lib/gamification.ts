@@ -42,7 +42,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'night_owl',       emoji: '🦉', title: 'Night Owl',         desc: 'Study after 10 PM',                            xpReward: 20, secret: true },
   { id: 'early_bird',      emoji: '🐦', title: 'Early Bird',        desc: 'Study before 7 AM',                            xpReward: 20, secret: true },
   { id: 'exam_survivor',   emoji: '🎓', title: 'Exam Survivor',     desc: 'Mark a subject as done on exam day',           xpReward: 50  },
-  { id: 'soul_seeker',     emoji: '✨', title: 'Soul Seeker',       desc: 'Reach 500 XP — Soul+ unlocked for free!',      xpReward: 0,  unlocksSoulPlus: true },
+  { id: 'soul_seeker',     emoji: '✨', title: 'Soul Seeker',       desc: 'Reach 500 XP — True dedication!',      xpReward: 0,  unlocksSoulPlus: false },
 ]
 
 // ─── Persistence ──────────────────────────────────────────────────────────
@@ -203,14 +203,8 @@ export function awardXP(event: XPEvent, extra?: { flashcardsReviewed?: number })
   if (streak >= 3) unlock('streak_3')
   if (streak >= 7) unlock('streak_7')
 
-  // Soul+ at 500 XP
-  let soulPlusUnlocked = false
-  if (state.xp >= 500 && !state.achievements.includes('soul_seeker')) {
-    unlock('soul_seeker')
-    soulPlusUnlocked = true
-    // Actually set Soul+ in localStorage
-    localStorage.setItem('bloomSoulPlus', 'true')
-  }
+  // Soul+ is only unlocked via subscription (not via XP)
+  const soulPlusUnlocked = false
 
   saveGameState(state)
   return { xpGained, newAchievements, soulPlusUnlocked, newState: state }

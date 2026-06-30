@@ -97,17 +97,11 @@ export default function StudyPlant() {
             <div className="flex gap-4 text-xs text-white/50">
               <span>🔥 {streak} day streak</span>
               <span>📚 {state.totalSessions} sessions</span>
-              {state.xp >= 500 && <span className="text-amber-400">✨ Soul+</span>}
             </div>
           </div>
         </div>
 
-        {/* XP milestone hint */}
-        {state.xp < 500 && (
-          <div className="text-xs text-center text-white/25 border-t border-white/5 pt-3 mt-1">
-            Reach 500 XP to unlock Soul+ for free ✨ ({500 - state.xp} XP to go)
-          </div>
-        )}
+
       </div>
 
       {/* Achievements modal */}

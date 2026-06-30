@@ -37,6 +37,9 @@ export default function PlannerClient() {
   const [editingWeakness, setEditingWeakness] = useState<string | null>(null)
   const [weaknessInput, setWeaknessInput] = useState('')
   const [bloomieInsight, setBloomieInsight] = useState('')
+  const [showAddTask, setShowAddTask] = useState(false)
+  const [customTasks, setCustomTasks] = useState<StudyTask[]>([])
+  const [newTask, setNewTask] = useState({ label: '', subjectId: '', date: getTodayStr(), duration: '20', type: 'review' as StudyTask['sessionType'] })
 
   useEffect(() => {
     // Load weaknesses
@@ -102,6 +105,11 @@ export default function PlannerClient() {
     if (savedDone) {
       setDoneTasks(new Set(JSON.parse(savedDone)))
     }
+    // Load custom tasks
+    try {
+      const ct = JSON.parse(localStorage.getItem('bloomCustomTasks') || '[]')
+      setCustomTasks(ct)
+    } catch {}
   }, [])
 
   function generateRevisionPrompt(task: StudyTask): string {
@@ -202,6 +210,33 @@ export default function PlannerClient() {
     return prompt
   }
 
+  function addCustomTask() {
+    if (!newTask.label.trim()) return
+    const subject = plan!.subjects.find(s => s.id === newTask.subjectId) || plan!.subjects[0]
+    const task: StudyTask = {
+      id: 'custom_' + Date.now(),
+      subjectId: subject?.id || 'custom',
+      subjectName: subject?.name || 'General',
+      subjectColor: subject?.color || '#A78BFA',
+      date: newTask.date,
+      durationMinutes: parseInt(newTask.duration) || 20,
+      sessionLabel: newTask.label.trim(),
+      sessionType: newTask.type,
+      done: false,
+    }
+    const updated = [...customTasks, task]
+    setCustomTasks(updated)
+    localStorage.setItem('bloomCustomTasks', JSON.stringify(updated))
+    setShowAddTask(false)
+    setNewTask({ label: '', subjectId: '', date: getTodayStr(), duration: '20', type: 'review' })
+  }
+
+  function deleteCustomTask(id: string) {
+    const updated = customTasks.filter(t => t.id !== id)
+    setCustomTasks(updated)
+    localStorage.setItem('bloomCustomTasks', JSON.stringify(updated))
+  }
+
   function saveWeakness(subjectId: string, note: string) {
     const updated = { ...weaknesses, [subjectId]: note }
     setWeaknesses(updated)
@@ -232,7 +267,7 @@ export default function PlannerClient() {
         // Award XP for completing a session
         const result = awardXP('session_complete')
         // Check if all today's tasks are now done
-        const todayTaskIds = tasks.filter(t => t.date === getTodayStr()).map(t => t.id)
+        const todayTaskIds = allTasks.filter(t => t.date === getTodayStr()).map(t => t.id)
         const allDone = todayTaskIds.every(id => id === taskId || next.has(id))
         if (allDone && todayTaskIds.length > 0) awardXP('all_day_complete')
         // Dispatch event so the plant widget updates
@@ -243,7 +278,8 @@ export default function PlannerClient() {
     })
   }
 
-  const todayTasks = useMemo(() => getTasksForDate(tasks, selectedDate), [tasks, selectedDate])
+  const allTasks = useMemo(() => [...tasks, ...customTasks], [tasks, customTasks])
+  const todayTasks = useMemo(() => getTasksForDate(allTasks, selectedDate), [allTasks, selectedDate])
 
   const weekDates = useMemo(() => {
     const today = new Date()
@@ -292,6 +328,10 @@ export default function PlannerClient() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <button onClick={() => setShowAddTask(true)}
+              className="text-sm px-3 py-1.5 rounded-xl bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 transition-all text-violet-300 font-medium">
+              + Add task
+            </button>
             <Link href="/planner/setup" className="text-sm px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition-all text-white/70">
               ✏️ Edit Plan
             </Link>
@@ -356,7 +396,7 @@ export default function PlannerClient() {
             <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
               {weekDates.map(date => {
                 const d = new Date(date + 'T00:00:00')
-                const dayTasks = getTasksForDate(tasks, date)
+                const dayTasks = getTasksForDate(allTasks, date)
                 const dayDone = dayTasks.filter(t => doneTasks.has(t.id)).length
                 const isToday = date === todayStr
                 const isSelected = date === selectedDate
@@ -436,6 +476,12 @@ export default function PlannerClient() {
                             return w ? <div className="text-xs text-red-400/70 mt-0.5">⚠️ {w}</div> : null
                           })()}
                         </div>
+                        {/* Delete button for custom tasks */}
+                        {task.id.startsWith('custom_') && (
+                          <button onClick={(e) => { e.stopPropagation(); deleteCustomTask(task.id) }}
+                            className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/40 text-white/20 hover:text-red-400 transition-all text-xs"
+                            title="Delete task">✕</button>
+                        )}
                         {/* Copy icon — small, right side */}
                         {!isDone && (
                           <button
@@ -461,7 +507,7 @@ export default function PlannerClient() {
         {view === 'week' && (
           <div className="space-y-4">
             {weekDates.map(date => {
-              const dayTasks = getTasksForDate(tasks, date)
+              const dayTasks = getTasksForDate(allTasks, date)
               if (dayTasks.length === 0) return null
               const d = new Date(date + 'T00:00:00')
               const isToday = date === todayStr
@@ -495,7 +541,7 @@ export default function PlannerClient() {
         {view === 'subjects' && (
           <div className="space-y-4">
             {plan.subjects.map(subject => {
-              const subjectTasks = tasks.filter(t => t.subjectId === subject.id)
+              const subjectTasks = allTasks.filter(t => t.subjectId === subject.id)
               const doneSub = subjectTasks.filter(t => doneTasks.has(t.id)).length
               const pct = subjectTasks.length > 0 ? Math.round((doneSub / subjectTasks.length) * 100) : 0
               const days = daysUntil(subject.examDate)
@@ -563,6 +609,97 @@ export default function PlannerClient() {
           </div>
         )}
       </div>
+      {/* Add Task modal */}
+      {showAddTask && plan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setShowAddTask(false)}>
+          <div className="w-full max-w-md bg-[#1a1a2e] border border-white/10 rounded-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+              <h2 className="font-bold text-base">+ Add Task</h2>
+              <button onClick={() => setShowAddTask(false)} className="text-white/30 hover:text-white text-xl">✕</button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              {/* Task label */}
+              <div>
+                <label className="text-xs text-white/50 mb-1.5 block">What to do</label>
+                <input
+                  autoFocus
+                  value={newTask.label}
+                  onChange={e => setNewTask(p => ({ ...p, label: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && addCustomTask()}
+                  placeholder="e.g. Review integration notes, Practice essay..."
+                  className="w-full px-3 py-2.5 bg-white/10 border border-white/15 rounded-xl text-sm text-white placeholder-white/30 focus:outline-none focus:border-violet-500"
+                />
+              </div>
+              {/* Subject */}
+              <div>
+                <label className="text-xs text-white/50 mb-1.5 block">Subject</label>
+                <select
+                  value={newTask.subjectId || plan.subjects[0]?.id}
+                  onChange={e => setNewTask(p => ({ ...p, subjectId: e.target.value }))}
+                  className="w-full px-3 py-2.5 bg-white/10 border border-white/15 rounded-xl text-sm text-white focus:outline-none focus:border-violet-500"
+                >
+                  {plan.subjects.map(s => <option key={s.id} value={s.id} style={{ background: '#1a1a2e' }}>{s.name}</option>)}
+                  <option value="__general" style={{ background: '#1a1a2e' }}>General / Other</option>
+                </select>
+              </div>
+              {/* Date + Duration row */}
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="text-xs text-white/50 mb-1.5 block">Date</label>
+                  <input
+                    type="date"
+                    value={newTask.date}
+                    onChange={e => setNewTask(p => ({ ...p, date: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-white/10 border border-white/15 rounded-xl text-sm text-white focus:outline-none focus:border-violet-500"
+                    style={{ colorScheme: 'dark' }}
+                  />
+                </div>
+                <div className="w-28">
+                  <label className="text-xs text-white/50 mb-1.5 block">Duration</label>
+                  <select
+                    value={newTask.duration}
+                    onChange={e => setNewTask(p => ({ ...p, duration: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-white/10 border border-white/15 rounded-xl text-sm text-white focus:outline-none focus:border-violet-500"
+                  >
+                    {['20','40','60','90','120'].map(d => <option key={d} value={d} style={{ background: '#1a1a2e' }}>{d} min</option>)}
+                  </select>
+                </div>
+              </div>
+              {/* Type */}
+              <div>
+                <label className="text-xs text-white/50 mb-1.5 block">Session type</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {([
+                    { v: 'review',       e: '📖', l: 'Review'   },
+                    { v: 'practice',     e: '💪', l: 'Practice' },
+                    { v: 'deep_dive',    e: '🔬', l: 'Deep dive'},
+                    { v: 'active_recall',e: '🧠', l: 'Recall'   },
+                    { v: 'flashcards',   e: '🃏', l: 'Cards'    },
+                    { v: 'summary',      e: '✍️', l: 'Summary'  },
+                    { v: 'past_paper',   e: '📝', l: 'Past paper'},
+                    { v: 'timed',        e: '⏱️', l: 'Timed'    },
+                  ] as const).map(({ v, e, l }) => (
+                    <button key={v} onClick={() => setNewTask(p => ({ ...p, type: v as StudyTask['sessionType'] }))}
+                      className={`py-2 rounded-xl text-xs flex flex-col items-center gap-1 border transition-all ${
+                        newTask.type === v ? 'bg-violet-500/30 border-violet-500/60 text-violet-200' : 'bg-white/5 border-white/10 text-white/50 hover:border-white/20'
+                      }`}>
+                      <span>{e}</span><span>{l}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="px-5 py-4 border-t border-white/10 flex justify-end gap-2">
+              <button onClick={() => setShowAddTask(false)} className="px-4 py-2 text-sm bg-white/5 hover:bg-white/10 rounded-xl text-white/50">Cancel</button>
+              <button onClick={addCustomTask} disabled={!newTask.label.trim()}
+                className="px-4 py-2 text-sm bg-gradient-to-r from-violet-500 to-pink-500 rounded-xl font-semibold text-white disabled:opacity-40">
+                Add to plan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Prompt edit modal */}
       {editPromptTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setEditPromptTask(null)}>

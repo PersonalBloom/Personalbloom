@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase'
 import { BloomieChat } from '@/components/ui/Bloomie'
 import { Button } from '@/components/ui/Button'
+import { awardXP } from '@/lib/gamification'
 
 // Large rotating question bank — 5 random questions picked each quiz
 const QUESTION_BANK: Record<string, { q: string; options: string[]; correct: number }[]> = {
@@ -191,6 +192,7 @@ export default function QuizPage() {
     // Save result
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
+      awardXP('session_complete')
       await supabase.from('quiz_results').insert({
         user_id: user.id, subject: selected,
         correct: correct ? 1 : 0, total: 1,

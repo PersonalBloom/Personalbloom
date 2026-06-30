@@ -36,11 +36,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       localStorage.setItem('bloomSoulPlus', 'true')
     } else {
       // Check Supabase plan — clear stale Soul+ for anyone who hasn't paid
-      const { data: profile } = await supabase.from('profiles').select('plan').eq('id', user.id).single()
+      const { data: profile } = await supabase.from('profiles').select('plan, stripe_subscription_id').eq('id', user.id).single()
       if (profile?.plan === 'soul_plus') {
         localStorage.setItem('bloomSoulPlus', 'true')
+        if (profile?.stripe_subscription_id) {
+          localStorage.setItem('bloomSubscriptionId', profile.stripe_subscription_id)
+        }
       } else {
         localStorage.removeItem('bloomSoulPlus')
+        localStorage.removeItem('bloomSubscriptionId')
         // Downgrade any lingering trial accounts to free
         if (profile?.plan === 'trial') {
           await supabase.from('profiles').update({ plan: 'free' }).eq('id', user.id)

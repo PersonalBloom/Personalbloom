@@ -293,6 +293,12 @@ function TextbooksTab() {
     if (!file || file.type !== 'application/pdf') return
     const subject = customSubject.trim() || selectedSubject
     if (!subject) { alert('Please select a subject first'); return }
+    // Free plan: max 3 subjects
+    const existingSubjects = Object.keys(notesBySubject)
+    if (!isSoulPlus && !existingSubjects.includes(subject) && existingSubjects.length >= 3) {
+      alert('Free plan allows up to 3 subjects. Upgrade to Soul+ for unlimited notes!')
+      return
+    }
 
     setUploading(true)
     setProgress(0)

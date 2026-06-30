@@ -14,10 +14,12 @@ function getAdminSupabase() {
   )
 }
 
-async function setUserPlan(userId: string, plan: 'soul_plus' | 'free') {
+async function setUserPlan(userId: string, plan: 'soul_plus' | 'free', stripeSubId?: string) {
   if (!userId) return
   const supabase = getAdminSupabase()
-  const { error } = await supabase.from('profiles').update({ plan }).eq('id', userId)
+  const update: Record<string, string> = { plan }
+  if (stripeSubId) update.stripe_subscription_id = stripeSubId
+  const { error } = await supabase.from('profiles').update(update).eq('id', userId)
   if (error) console.error('Supabase plan update error:', error)
   else console.log(`Set plan=${plan} for user ${userId}`)
 }
@@ -51,7 +53,7 @@ export async function POST(req: NextRequest) {
       const userId = sub.metadata?.supabase_user_id
       if (userId) {
         const plan = (sub.status === 'active' || sub.status === 'trialing') ? 'soul_plus' : 'free'
-        await setUserPlan(userId, plan)
+        await setUserPlan(userId, plan, sub.id)
       }
       break
     }

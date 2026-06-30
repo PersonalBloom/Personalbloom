@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/Button'
+import { awardXP } from '@/lib/gamification'
 
 type Mode = 'focus' | 'short' | 'long'
 const MODES: Record<Mode, { label: string; mins: number; color: string }> = {
@@ -94,7 +95,7 @@ export default function PomodoroPage() {
           if (s <= 1) {
             clearInterval(intervalRef.current!)
             setRunning(false)
-            if (mode === 'focus') setSessions(n => n + 1)
+            if (mode === 'focus') { setSessions(n => n + 1); awardXP('session_complete') }
             return 0
           }
           return s - 1

@@ -97,6 +97,7 @@ export default function StudyPlant() {
             <div className="flex gap-4 text-xs text-white/50">
               <span>🔥 {streak} day streak</span>
               <span>📚 {state.totalSessions} sessions</span>
+              {state.xp >= 20900 && <span className="text-amber-400">✨ Soul+</span>}
             </div>
           </div>
         </div>

@@ -174,10 +174,17 @@ function getBloomieResponse(userText: string, history: Message[]): string {
   }
 
   // ── Sports / world cup — checked before opinion handler ──
-  const _isSportsTopic = /(world cup|worldcup|fifa|football|soccer|nfl|nba|champions league|premier league|la liga|bundesliga|serie a|euros|euro 2024|copa america)/.test(lower)
+  const _isSportsTopic = /(world cup|worldcup|fifa|football|soccer|nfl|nba|champions league|premier league|la liga|bundesliga|serie a|euros|euro 2024|copa america|penalties|penalty shootout|extra time|red card|offside|hat trick|clean sheet|knocked out|eliminated|match result|game result|full time|half time|the final|semi.final|quarter.final|group stage)/.test(lower)
   const _isSportsCountry = /\b(france|brazil|england|spain|germany|argentina|portugal|morocco|japan|usa|netherlands|belgium|mbappe|ronaldo|messi|haaland|vinicius)\b/.test(lower)
-  const _isSportsAction = /\b(win|beat|champion|final|tournament|qualify|score|goal|penalty|gonna win|going to win)\b/.test(lower)
+  const _isSportsAction = /\b(win|beat|champion|final|tournament|qualify|score|goal|penalty|penalties|gonna win|going to win|lost|knocked out|eliminated|drew|draw|tied)\b/.test(lower)
   if (_isSportsTopic || (_isSportsCountry && _isSportsAction)) {
+    if (/\b(lost|knocked out|eliminated|out of|penalty|penalties)\b/.test(lower) && /\b(they|he|she|team|country)\b/.test(lower)) {
+      return pick([
+        "Nooo on penalties?? That's the most brutal way to go out 😭 Who was it?",
+        "Penalties are so painful to watch honestly. How are you feeling about it?",
+        "On penalties!! The heartbreak 💔 That's football for you though. Who do you think goes all the way now?",
+      ])
+    }
     if (/\b(win|winner|champion|best|favourite|favorite|predict|prediction|think|reckon|gonna win|going to win)\b/.test(lower)) {
       return pick([
         "Ooh sports opinions!! Honestly Brazil and France are always the safe picks but Germany always shows up when it matters. Who are YOU rooting for? 🏆",

@@ -187,12 +187,7 @@ export default function DashboardHome() {
           </h1>
           <p className="text-white/50 text-sm">Today is {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
         </div>
-        {profile?.plan === 'trial' && !isSoulPlusLocal && (
-          <div className="glass px-4 py-2 rounded-xl text-sm">
-            <span className="text-amber-400 font-semibold">✨ Soul+ Trial</span>
-            <p className="text-white/40 text-xs mt-0.5">7 days remaining</p>
-          </div>
-        )}
+
       </div>
 
       {/* Bloomie chat */}

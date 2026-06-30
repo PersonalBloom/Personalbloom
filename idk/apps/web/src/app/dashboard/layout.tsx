@@ -41,6 +41,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         localStorage.setItem('bloomSoulPlus', 'true')
       } else {
         localStorage.removeItem('bloomSoulPlus')
+        // Downgrade any lingering trial accounts to free
+        if (profile?.plan === 'trial') {
+          await supabase.from('profiles').update({ plan: 'free' }).eq('id', user.id)
+        }
       }
     }
   }, [supabase, router])

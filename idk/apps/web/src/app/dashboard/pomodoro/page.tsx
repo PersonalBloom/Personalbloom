@@ -11,12 +11,12 @@ const MODES: Record<Mode, { label: string; mins: number; color: string }> = {
 }
 
 const ROOMS = [
-  { id: 'rain',    icon: '🌧️', label: 'Rain',        src: null                   },
-  { id: 'lofi',    icon: '🎵', label: 'Lo-fi beats', src: '/sounds/lofi.mp3'     },
-  { id: 'forest',  icon: '🌲', label: 'Forest',      src: '/sounds/forest.mp3'   },
-  { id: 'cafe',    icon: '☕', label: 'Café',         src: '/sounds/cafe.mp3'     },
-  { id: 'space',   icon: '🚀', label: 'Deep Space',  src: '/sounds/space.mp3'    },
-  { id: 'binaural',icon: '🧠', label: 'Binaural',    src: '/sounds/binaural.mp3' },
+  { id: 'rain',    icon: '🌧️', label: 'Rain',        src: null,                   premium: false },
+  { id: 'lofi',    icon: '🎵', label: 'Lo-fi beats', src: '/sounds/lofi.mp3',     premium: true  },
+  { id: 'forest',  icon: '🌲', label: 'Forest',      src: '/sounds/forest.mp3',   premium: true  },
+  { id: 'cafe',    icon: '☕', label: 'Café',         src: '/sounds/cafe.mp3',     premium: true  },
+  { id: 'space',   icon: '🚀', label: 'Deep Space',  src: '/sounds/space.mp3',    premium: true  },
+  { id: 'binaural',icon: '🧠', label: 'Binaural',    src: '/sounds/binaural.mp3', premium: true  },
 ]
 
 export default function PomodoroPage() {
@@ -25,6 +25,11 @@ export default function PomodoroPage() {
   const [running, setRunning] = useState(false)
   const [room, setRoom] = useState<string | null>(null)
   const [sessions, setSessions] = useState(0)
+  const [isSoulPlus, setIsSoulPlus] = useState(false)
+
+  useEffect(() => {
+    setIsSoulPlus(localStorage.getItem('bloomSoulPlus') === 'true')
+  }, [])
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)
   const rainSourceRef = useRef<AudioNode | null>(null)
@@ -65,11 +70,12 @@ export default function PomodoroPage() {
   }, [])
 
   function playRoom(id: string) {
+    const r = ROOMS.find(x => x.id === id)
+    if (!r) return
+    if (r.premium && !isSoulPlus) return // blocked
     stopAudio()
     if (room === id) { setRoom(null); return }
     setRoom(id)
-    const r = ROOMS.find(x => x.id === id)
-    if (!r) return
     if (id === 'rain') {
       startRain()
     } else if (r.src) {
@@ -172,13 +178,21 @@ export default function PomodoroPage() {
         <h3 className="font-bold mb-4">🎵 Ambient Sounds</h3>
         <div className="grid grid-cols-3 gap-3">
           {ROOMS.map(r => (
-            <button key={r.id} onClick={() => playRoom(r.id)}
-              className={`card text-center py-5 relative transition-all cursor-pointer ${
+            <button key={r.id}
+              onClick={() => r.premium && !isSoulPlus ? window.location.href = '/pricing' : playRoom(r.id)}
+              className={`card text-center py-5 relative transition-all ${
+                r.premium && !isSoulPlus
+                  ? 'opacity-50 cursor-pointer'
+                  : 'cursor-pointer'
+              } ${
                 room === r.id
                   ? 'border-violet-400 bg-violet-500/20'
                   : 'hover:border-violet-400/30'
               }`}
             >
+              {r.premium && !isSoulPlus && (
+                <span className="absolute top-2 right-2 text-[10px] bg-violet-500/30 text-violet-300 px-1.5 py-0.5 rounded-full border border-violet-500/40">Soul+</span>
+              )}
               <span className="text-3xl block mb-2">{r.icon}</span>
               <span className="text-xs font-semibold">{r.label}</span>
               {room === r.id && <span className="block text-xs text-violet-400 mt-1">Playing ♪</span>}

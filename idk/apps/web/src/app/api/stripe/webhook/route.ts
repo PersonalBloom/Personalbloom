@@ -1,9 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { createClient } from '@supabase/supabase-js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-04-10',
 })
+
+// Service role client — bypasses RLS so we can update any profile
+function getAdminSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
+
+async function setUserPlan(userId: string, plan: 'soul_plus' | 'free') {
+  if (!userId) return
+  const supabase = getAdminSupabase()
+  const { error } = await supabase.from('profiles').update({ plan }).eq('id', userId)
+  if (error) console.error('Supabase plan update error:', error)
+  else console.log(`Set plan=${plan} for user ${userId}`)
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.text()
@@ -11,37 +28,46 @@ export async function POST(req: NextRequest) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
 
   let event: Stripe.Event
-
   try {
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret)
   } catch (err) {
-    console.error('Webhook signature verification failed:', err)
+    console.error('Webhook signature failed:', err)
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
-  // Handle events
   switch (event.type) {
+    // Payment succeeded — upgrade user
+    case 'checkout.session.completed': {
+      const session = event.data.object as Stripe.Checkout.Session
+      const userId = session.metadata?.supabase_user_id
+      if (userId) await setUserPlan(userId, 'soul_plus')
+      break
+    }
+
+    // Subscription renewed or reactivated
     case 'customer.subscription.created':
     case 'customer.subscription.updated': {
       const sub = event.data.object as Stripe.Subscription
-      console.log('Subscription updated:', sub.id, sub.status)
-      // TODO: update your Supabase user record with sub.status + sub.customer
+      const userId = sub.metadata?.supabase_user_id
+      if (userId) {
+        const plan = (sub.status === 'active' || sub.status === 'trialing') ? 'soul_plus' : 'free'
+        await setUserPlan(userId, plan)
+      }
       break
     }
-    case 'customer.subscription.deleted': {
-      const sub = event.data.object as Stripe.Subscription
-      console.log('Subscription cancelled:', sub.id)
-      // TODO: downgrade user in Supabase
-      break
-    }
+
+    // Subscription cancelled or payment permanently failed — downgrade
+    case 'customer.subscription.deleted':
     case 'invoice.payment_failed': {
-      const invoice = event.data.object as Stripe.Invoice
-      console.log('Payment failed for:', invoice.customer)
-      // TODO: email user or flag in Supabase
+      const obj = event.data.object as Stripe.Subscription | Stripe.Invoice
+      const userId = (obj as Stripe.Subscription).metadata?.supabase_user_id
+        ?? (obj as Stripe.Invoice).subscription_details?.metadata?.supabase_user_id
+      if (userId) await setUserPlan(userId, 'free')
       break
     }
+
     default:
-      console.log('Unhandled event type:', event.type)
+      break
   }
 
   return NextResponse.json({ received: true })

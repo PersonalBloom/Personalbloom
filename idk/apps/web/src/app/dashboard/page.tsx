@@ -103,7 +103,7 @@ export default function DashboardHome() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [hour] = useState(new Date().getHours())
   const [rescueMode, setRescueMode] = useState(false)
-  const [isSoulPlusLocal, setIsSoulPlusLocal] = useState(true)
+  const [isSoulPlusLocal, setIsSoulPlusLocal] = useState(false)
 
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
   const [bloomieMsg, setBloomieMsg] = useState('')
@@ -187,7 +187,7 @@ export default function DashboardHome() {
           </h1>
           <p className="text-white/50 text-sm">Today is {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
         </div>
-        {profile?.plan === 'trial' && (
+        {profile?.plan === 'trial' && !isSoulPlusLocal && (
           <div className="glass px-4 py-2 rounded-xl text-sm">
             <span className="text-amber-400 font-semibold">✨ Soul+ Trial</span>
             <p className="text-white/40 text-xs mt-0.5">7 days remaining</p>

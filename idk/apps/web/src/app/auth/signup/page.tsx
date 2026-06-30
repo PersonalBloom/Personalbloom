@@ -75,7 +75,6 @@ function SignupForm() {
         <div className="text-center mb-8">
           <BloomieAvatar size="md" className="mx-auto mb-4" />
           <h1 className="text-2xl font-black mb-1">Create your account</h1>
-          <p className="text-white/50 text-sm">3-day Soul+ trial included ✨</p>
         </div>
 
         <button onClick={handleGoogle}

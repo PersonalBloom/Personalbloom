@@ -56,9 +56,7 @@ export default function OnboardingPage() {
         name,
         school_system: system,
         subjects,
-        plan: 'trial',
-        trial_started_at: new Date().toISOString(),
-        trial_days: 7,
+        plan: 'free',
         growth_points: 0,
         streak: 0,
         total_sessions: 0,
@@ -168,8 +166,7 @@ export default function OnboardingPage() {
                 <BloomieAvatar size="xl" className="mx-auto mb-6" />
                 <h2 className="text-2xl font-black mb-3">You're ready to bloom! 🌸</h2>
                 <p className="text-white/60 mb-6">
-                  Welcome, <strong className="text-white">{name}</strong>! Your 7-day Soul+ trial starts now.
-                  Explore everything — then decide if you want to keep it.
+                  Welcome, <strong className="text-white">{name}</strong>! You are on the free plan. Upgrade to Soul+ anytime to unlock everything. 🌸
                 </p>
                 <div className="glass p-4 rounded-xl text-left mb-6 space-y-2">
                   <p className="text-sm text-white/50">📚 Subjects: <span className="text-white">{subjects.join(', ')}</span></p>

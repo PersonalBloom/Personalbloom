@@ -34,6 +34,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // Only the creator gets Soul+ free
     if (user.email === 'augustinduha67@gmail.com') {
       localStorage.setItem('bloomSoulPlus', 'true')
+    } else {
+      // Check Supabase plan — clear stale Soul+ for anyone who hasn't paid
+      const { data: profile } = await supabase.from('profiles').select('plan').eq('id', user.id).single()
+      if (profile?.plan === 'soul_plus') {
+        localStorage.setItem('bloomSoulPlus', 'true')
+      } else {
+        localStorage.removeItem('bloomSoulPlus')
+      }
     }
   }, [supabase, router])
 

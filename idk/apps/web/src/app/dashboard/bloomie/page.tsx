@@ -173,13 +173,17 @@ function getBloomieResponse(userText: string, history: Message[]): string {
     ])
   }
 
-  // ── Sports / world cup ──
-  if (/(world cup|worldcup|fifa|football|soccer|nfl|nba|champions league|premier league|la liga|bundesliga|serie a|euros|euro 2024|copa america)/.test(lower)) {
-    if (/who.*(win|gonna win|going to win|champion|favourite|favorite|best)/.test(lower) || /(win|winner|champion)/.test(lower)) {
+  // ── Sports / world cup — checked before opinion handler ──
+  const _isSportsTopic = /(world cup|worldcup|fifa|football|soccer|nfl|nba|champions league|premier league|la liga|bundesliga|serie a|euros|euro 2024|copa america)/.test(lower)
+  const _isSportsCountry = /\b(france|brazil|england|spain|germany|argentina|portugal|morocco|japan|usa|netherlands|belgium|mbappe|ronaldo|messi|haaland|vinicius)\b/.test(lower)
+  const _isSportsAction = /\b(win|beat|champion|final|tournament|qualify|score|goal|penalty|gonna win|going to win)\b/.test(lower)
+  if (_isSportsTopic || (_isSportsCountry && _isSportsAction)) {
+    if (/\b(win|winner|champion|best|favourite|favorite|predict|prediction|think|reckon|gonna win|going to win)\b/.test(lower)) {
       return pick([
         "Ooh sports opinions!! Honestly Brazil and France are always the safe picks but Germany always shows up when it matters. Who are YOU rooting for? 🏆",
         "Hot take: whoever has the best goalkeeper wins. Who do you think is looking strong this year?",
         "I feel like Spain or France are the safest bets rn but upsets make it fun!! Who's your team? ⚽",
+        "Honestly?? France have Mbappe so they're scary but Brazil always show up. What's your take? ⚽",
       ])
     }
     return pick([

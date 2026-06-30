@@ -11,29 +11,75 @@ type Phase = 'set_code' | 'gather_info' | 'locked' | 'exit_code'
 
 function generateRescuePlan(subject: string, topics: string, notes: string): string[] {
   const topicList = topics.split(/[,\n]/).map(t => t.trim()).filter(Boolean)
-  const noteLines = notes.split('\n').map(l => l.trim()).filter(l => l.length > 10)
-
+  const noteLines = notes.split('\n').map(l => l.trim()).filter(l => l.length > 8)
   const plan: string[] = []
 
+  // ── 1. Topic-by-topic attack plan ──
   if (topicList.length > 0) {
-    plan.push(`📌 Your exam covers: ${topicList.join(', ')}. Start with the one you know LEAST.`)
+    const topicPlan = topicList.map((t, i) => `${i + 1}. ${t}`).join('\n')
+    plan.push(`🗺️ YOUR EXAM TOPICS — study in this order (start with what you know least):\n${topicPlan}\n\nFor each topic: close your notes → write everything you remember → check what you missed → repeat.`)
   }
 
+  // ── 2. Extract key concepts from notes ──
   if (noteLines.length > 0) {
-    plan.push(`📖 From your notes — key things to master right now:\n${noteLines.slice(0, 5).map(l => `• ${l}`).join('\n')}`)
+    // Find lines that look like definitions (contain "is", "are", "=", ":", "means", "defined as")
+    const defLines = noteLines.filter(l =>
+      /\b(is|are|=|means|defined as|refers to|called|formula|equation|law|rule|theorem|principle)\b/i.test(l)
+    ).slice(0, 6)
+
+    // Find lines that look like key terms (short, capitalised, or all-caps chunks)
+    const keyTermLines = noteLines.filter(l => l.length < 80 && /[A-Z]{2,}|^[A-Z][a-z]+ [A-Z]/.test(l)).slice(0, 4)
+
+    if (defLines.length > 0) {
+      plan.push(`📖 KEY DEFINITIONS from your notes — test yourself on each one:\n${defLines.map(l => `• ${l}`).join('\n')}\n\nCan you explain each of these without looking? If not, that's your priority.`)
+    }
+
+    if (keyTermLines.length > 0) {
+      plan.push(`🔑 KEY TERMS spotted in your notes:\n${keyTermLines.map(l => `• ${l}`).join('\n')}\n\nWrite the definition of each one from memory right now.`)
+    }
+
+    // Important lines you might have missed
+    const otherLines = noteLines.filter(l => !defLines.includes(l) && !keyTermLines.includes(l)).slice(0, 5)
+    if (otherLines.length > 0) {
+      plan.push(`📝 MORE FROM YOUR NOTES — don't skip these:\n${otherLines.map(l => `• ${l}`).join('\n')}`)
+    }
   }
 
-  plan.push(`⚡ For ${subject || 'this exam'}: do NOT re-read everything. Pick the 3 most important concepts and write them from memory.`)
-  plan.push(`🎯 Make a quick list: what do you definitely know? What are you unsure about? Focus only on the unsure stuff.`)
-  plan.push(`⏱️ Work in focused blocks. 25 minutes on one topic, then 5 minutes break. No phone during the 25 min.`)
-  plan.push(`📝 Write out definitions, formulas, and key facts on paper. Writing helps you remember better than reading.`)
-  plan.push(`🔄 After studying a topic, close your notes and try to recall everything. If you can't, study it again.`)
+  // ── 3. Topic-specific mini-strategies ──
+  const subjectLower = (subject || '').toLowerCase()
+  if (/math|maths|calculus|algebra|stats|statistics/.test(subjectLower)) {
+    plan.push(`➗ MATH STRATEGY: Don't just read examples — redo them yourself on paper. For each formula, write it from memory, then do one practice problem. If you get it wrong, do it again.`)
+  } else if (/biology|bio/.test(subjectLower)) {
+    plan.push(`🧬 BIOLOGY STRATEGY: Draw and label diagrams from memory (cell structures, cycles, processes). Examiners love labelled diagrams. Cover your notes and redraw 3 key diagrams right now.`)
+  } else if (/chemistry|chem/.test(subjectLower)) {
+    plan.push(`⚗️ CHEMISTRY STRATEGY: Write out every equation and reaction type on one page. Then balance 3 equations from scratch without looking. Know your units and significant figures.`)
+  } else if (/physics/.test(subjectLower)) {
+    plan.push(`⚡ PHYSICS STRATEGY: List every formula you need on one page. For each one: write the formula, write what each letter means, then do one calculation. Don't move on until you can do it without looking.`)
+  } else if (/history|hist/.test(subjectLower)) {
+    plan.push(`📜 HISTORY STRATEGY: For each event/period — write: What happened? When? Why? What were the consequences? Practice writing one paragraph answers. Use specific dates and names.`)
+  } else if (/english|lit|language/.test(subjectLower)) {
+    plan.push(`📚 ENGLISH STRATEGY: Prepare 3-4 strong quotes per text/theme that you can use in any essay. Practice writing your opening paragraph and thesis in under 5 minutes.`)
+  } else if (/french|spanish|german|language/.test(subjectLower)) {
+    plan.push(`🗣️ LANGUAGE STRATEGY: Write out 10 key vocab words from each topic, then cover and recall. Practice one written response timed. Focus on tense accuracy — that's where marks are lost.`)
+  } else if (/econ|economics/.test(subjectLower)) {
+    plan.push(`📈 ECONOMICS STRATEGY: For every concept — draw the diagram, label it, explain what shifts what and why. Examiners want to see: definition → diagram → explanation → real example.`)
+  } else {
+    plan.push(`⚡ ${subject ? subject.toUpperCase() + ' STRATEGY' : 'STRATEGY'}: Pick the 3 most likely exam questions and write a full answer to each one from memory. Then compare with your notes and fill the gaps.`)
+  }
 
+  // ── 4. Time management ──
   if (topicList.length > 1) {
-    plan.push(`📋 Divide your time: spend roughly ${Math.round(100 / topicList.length)}% on each topic. Don't get stuck on one.`)
+    const mins = Math.round(60 / topicList.length)
+    plan.push(`⏱️ TIME SPLIT: You have ${topicList.length} topics. Spend roughly ${mins} minutes per topic right now for a first pass. Then go back to your weakest one for a second pass.`)
+  } else {
+    plan.push(`⏱️ TIMING: Work in 25-min focused blocks. No phone, no music with lyrics. After each block, write down 3 things you just learned — it forces your brain to consolidate.`)
   }
 
-  plan.push(`💪 You have more time than you think. Stay calm, stay focused. Bloomie believes in you.`)
+  // ── 5. Active recall tip ──
+  plan.push(`🔄 ACTIVE RECALL — the most powerful thing you can do right now:\n1. Read one page/topic for 3 minutes\n2. Close the notes\n3. Write everything you remember\n4. Check what you missed\n5. Repeat step 3 until you get it all\n\nThis beats re-reading 10x. Do this for every topic.`)
+
+  // ── 6. Final encouragement ──
+  plan.push(`💜 You're not starting from zero — you know more than you think. Bloomie is right here with you. Close your phone apps, open your notes, and let's go. You've got this. 🌸`)
 
   return plan
 }

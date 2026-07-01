@@ -35,11 +35,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // Only the creator gets Soul+ free
     if (user.email === 'augustinduha67@gmail.com') {
       localStorage.setItem('bloomSoulPlus', 'true')
+      window.dispatchEvent(new Event('bloomSoulPlusChanged'))
     } else {
       // Check Supabase plan — clear stale Soul+ for anyone who hasn't paid
       const { data: profile } = await supabase.from('profiles').select('plan, stripe_subscription_id').eq('id', user.id).single()
       if (profile?.plan === 'soul_plus') {
         localStorage.setItem('bloomSoulPlus', 'true')
+        window.dispatchEvent(new Event('bloomSoulPlusChanged'))
         if (profile?.stripe_subscription_id) {
           localStorage.setItem('bloomSubscriptionId', profile.stripe_subscription_id)
         }
@@ -49,6 +51,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         const earnedByXP = (game.xp || 0) >= 20900
         if (earnedByXP) {
           localStorage.setItem('bloomSoulPlus', 'true')
+          window.dispatchEvent(new Event('bloomSoulPlusChanged'))
         } else {
           localStorage.removeItem('bloomSoulPlus')
           localStorage.removeItem('bloomSubscriptionId')

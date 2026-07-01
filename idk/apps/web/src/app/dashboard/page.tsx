@@ -163,9 +163,13 @@ export default function DashboardHome() {
   useEffect(() => { loadProfile() }, [loadProfile])
 
   useEffect(() => {
-    // Check localStorage for Soul+ status
-    const soulPlus = localStorage.getItem('bloomSoulPlus') === 'true'
-    setIsSoulPlusLocal(soulPlus)
+    function syncSoulPlus() {
+      const soulPlus = localStorage.getItem('bloomSoulPlus') === 'true'
+      setIsSoulPlusLocal(soulPlus)
+    }
+    syncSoulPlus()
+    // Re-sync when layout finishes async auth check
+    window.addEventListener('bloomSoulPlusChanged', syncSoulPlus)
     // Handle redirect from Stripe checkout
     const params = new URLSearchParams(window.location.search)
     if (params.get('upgraded') === 'true') {
@@ -173,6 +177,7 @@ export default function DashboardHome() {
       setIsSoulPlusLocal(true)
       window.history.replaceState({}, '', '/dashboard')
     }
+    return () => window.removeEventListener('bloomSoulPlusChanged', syncSoulPlus)
   }, [])
 
   useEffect(() => { setBloomieMsg(buildBloomieMsg(profile)) }, [profile])

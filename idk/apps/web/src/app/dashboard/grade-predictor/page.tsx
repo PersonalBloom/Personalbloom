@@ -51,7 +51,12 @@ export default function GradePredictorPage() {
     setLoading(false)
   }, [supabase])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+    function syncSoulPlus() { setIsSoulPlus(localStorage.getItem('bloomSoulPlus') === 'true') }
+    window.addEventListener('bloomSoulPlusChanged', syncSoulPlus)
+    return () => window.removeEventListener('bloomSoulPlusChanged', syncSoulPlus)
+  }, [load])
 
   if (!isSoulPlus) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">

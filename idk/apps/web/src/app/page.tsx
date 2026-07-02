@@ -80,7 +80,7 @@ export default function LandingPage() {
             </Link>
           </div>
           <p className="mt-4 text-sm text-white/30">
-            No credit card needed · 3-day Soul+ trial included
+            No credit card needed · Free forever · Earn Soul+ or upgrade anytime
           </p>
         </motion.div>
       </section>
@@ -157,10 +157,10 @@ export default function LandingPage() {
             </div>
             <Link href="/auth/signup">
               <Button variant="soul" size="lg">
-                ✨ Try Soul+ free for 3 days
+                ✨ Upgrade to Soul+
               </Button>
             </Link>
-            <p className="mt-3 text-xs text-white/30">Then just $9.99/month. Cancel anytime.</p>
+            <p className="mt-3 text-xs text-white/30">From $9.99/month. Cancel anytime. Or earn it free at 20,900 XP 🌸</p>
           </div>
         </motion.div>
       </section>

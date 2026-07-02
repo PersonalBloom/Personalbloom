@@ -223,7 +223,7 @@ export default function PricingPage() {
                 )}
                 <div className="mt-3 flex flex-wrap gap-2">
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-green-500/15 border border-green-500/25 text-green-400 text-sm font-semibold">
-                    🎉 3-day free trial
+                    ✨ No commitment
                   </div>
                   {billing === 'yearly' && (
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-400/25 text-amber-300 text-sm font-semibold">
@@ -266,10 +266,10 @@ export default function PricingPage() {
                 disabled={loading}
                 className="w-full py-4 rounded-2xl bg-gradient-to-r from-violet-500 via-purple-500 to-amber-500 text-white font-bold text-lg hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60 shadow-lg shadow-violet-500/30"
               >
-                {loading ? '⏳ Redirecting...' : !isLoggedIn ? '🌸 Sign up & start free trial' : billing === 'yearly' ? '✨ Start my free yearly trial' : '✨ Start my 3-day free trial'}
+                {loading ? '⏳ Redirecting...' : !isLoggedIn ? '🌸 Sign up & upgrade to Soul+' : billing === 'yearly' ? '✨ Start yearly Soul+' : '✨ Start monthly Soul+'}
               </button>
               <p className="mt-3 text-center text-xs text-white/25">
-                No charge for 3 days · Cancel anytime · Secured by Stripe
+                Cancel anytime · Secured by Stripe
               </p>
             </div>
           </motion.div>
@@ -319,9 +319,9 @@ export default function PricingPage() {
         <div className="space-y-4">
           {[
             ['Can I cancel any time?', 'Yes — cancel with one click from your account settings. No fees, no drama.'],
-            ['Will I be charged during the trial?', 'Nope. Your card is not charged until day 4. If you cancel before that, you pay nothing.'],
+            ['Is there a free trial?', 'No trial — but you can earn Soul+ for free by reaching 20,900 XP through studying. Or cancel your paid plan anytime, no questions asked.'],
             ['What happens to my data if I cancel?', 'Your notes, flashcards, and plan stay in your account on the Free plan.'],
-            ['Do promo codes work on top of the trial?', 'Yes — enter your code at checkout to get an additional discount on your first month.'],
+            ['Do promo codes work?', 'Yes — enter your code at checkout to get a discount on your first month.'],
             ['Is there a student discount?', 'Yes! Use code STUDENT15 for 15% off every month.'],
             ['What is the difference between monthly and yearly?', `With the yearly plan you pay €${yearlyPrice} once a year instead of €${(monthlyPrice * 12).toFixed(0)} — you save €${yearlySaving}.`],
           ].map(([q, a]) => (

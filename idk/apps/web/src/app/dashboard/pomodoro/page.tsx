@@ -29,7 +29,10 @@ export default function PomodoroPage() {
   const [isSoulPlus, setIsSoulPlus] = useState(false)
 
   useEffect(() => {
-    setIsSoulPlus(localStorage.getItem('bloomSoulPlus') === 'true')
+    function syncSoulPlus() { setIsSoulPlus(localStorage.getItem('bloomSoulPlus') === 'true') }
+    syncSoulPlus()
+    window.addEventListener('bloomSoulPlusChanged', syncSoulPlus)
+    return () => window.removeEventListener('bloomSoulPlusChanged', syncSoulPlus)
   }, [])
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)

@@ -73,6 +73,7 @@ function NotesTab() {
   const [subjects, setSubjects] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)
+  const [isSoulPlus, setIsSoulPlus] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -83,6 +84,10 @@ function NotesTab() {
       const p = JSON.parse(plan)
       setSubjects(p.subjects?.map((s: { name: string }) => s.name) || [])
     }
+    function syncSoulPlus() { setIsSoulPlus(localStorage.getItem('bloomSoulPlus') === 'true') }
+    syncSoulPlus()
+    window.addEventListener('bloomSoulPlusChanged', syncSoulPlus)
+    return () => window.removeEventListener('bloomSoulPlusChanged', syncSoulPlus)
   }, [])
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
